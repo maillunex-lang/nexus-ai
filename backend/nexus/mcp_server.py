@@ -1,7 +1,8 @@
 from mcp.server.fastmcp import FastMCP
 from .db import database_ok
 
-mcp = FastMCP("NEXUS AI", stateless_http=True, json_response=True)
+# Mounting under /mcp in FastAPI requires the ASGI app's internal path to be /.
+mcp = FastMCP("NEXUS AI", stateless_http=True, json_response=True, streamable_http_path="/")
 
 @mcp.tool()
 def nexus_status() -> dict:
