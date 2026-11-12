@@ -10,9 +10,17 @@ def overview(request: Request) -> dict:
         from fastapi import HTTPException
         raise HTTPException(403, "Role required")
     with connection() as conn:
-        projects = conn.execute(
-            "SELECT id, name, created_at FROM projects ORDER BY created_at DESC, id LIMIT 50"
-        ).fetchall()
+        if "owner" in user["roles"]:
+            projects = conn.execute(
+                "SELECT id, name, created_at FROM projects ORDER BY created_at DESC, id LIMIT 50"
+            ).fetchall()
+        else:
+            projects = conn.execute(
+                """SELECT p.id,p.name,p.created_at FROM projects p
+                   JOIN project_memberships m ON m.project_id=p.id
+                   WHERE m.user_id=%s ORDER BY p.created_at DESC LIMIT 50""",
+                (user["id"],)
+            ).fetchall()
         tasks = conn.execute(
             "SELECT status, count(*) FROM approval_requests GROUP BY status"
         ).fetchall()
