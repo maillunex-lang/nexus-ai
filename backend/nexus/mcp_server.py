@@ -587,3 +587,21 @@ def nexus_android_graphics_presets() -> dict:
     """List mobile quality presets and actual vs planned features."""
     from .android_optimizer import presets
     return presets()
+
+@mcp.tool()
+def nexus_director_request_approval(project_id: str, action: str, description: str = "") -> dict:
+    """Create an inert owner-approval request and return its direct HTTPS approval URL.
+
+    Works with an MCP read token. Supported actions: inspect_project,
+    build_android_debug (only build-enabled games). No code is executed
+    until the owner approves in the NEXUS dashboard.
+    """
+    from .director_requests import propose
+    return propose(project_id,action,description)
+
+
+@mcp.tool()
+def nexus_director_approval_status(request_id: str) -> dict:
+    """Read the current state of an owner-scoped approval request."""
+    from .director_requests import status
+    return status(request_id)
