@@ -15,3 +15,6 @@ godot-workspaces/
 
 # Godot queued jobs contain user-supplied source and are never committed
 godot-queue/
+
+# Imported project snapshots (never commit user game source)
+registered-projects/
