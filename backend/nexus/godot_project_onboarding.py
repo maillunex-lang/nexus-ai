@@ -18,7 +18,10 @@ def request(project_id:str,source_type:str,source:str)->dict:
     user=require_owner_write()
     if not isinstance(project_id,str) or not ID.fullmatch(project_id):
         return {"error":"invalid_project_id"}
-    if source_type=="github":
+    if source_type=="template":
+        if not isinstance(source,str) or not 1<=len(source)<=70 or any(ord(c)<32 or c in "\\/<>\"" for c in source):
+            return {"error":"invalid_project_title"}
+    elif source_type=="github":
         if not isinstance(source,str) or not GITHUB.fullmatch(source) or ".." in source:
             return {"error":"invalid_github_repository"}
         match=GITHUB.fullmatch(source)
