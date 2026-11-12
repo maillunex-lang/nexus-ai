@@ -5,7 +5,7 @@ from .db import database_ok
 from .security import MCPBearerGuard
 from .identity import LoginRequest, login, logout, current_user
 from .permissions import require_role
-from .oauth_server import AuthorizeRequest, TokenRequest, authorize, exchange
+from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,7 +17,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path == "/oauth/authorize") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         origin = request.headers.get("origin")
         host = request.headers.get("host", "")
         if origin and origin not in ("http://" + host, "https://" + host):
@@ -51,6 +51,14 @@ def operator_overview(user: dict = Depends(require_role("owner", "operator", "vi
 @app.get("/api/admin/overview")
 def admin_overview(user: dict = Depends(require_role("owner"))):
     return {"username": user["username"], "management_enabled": False}
+
+@app.get("/oauth/consent")
+def oauth_consent(client_id: str, redirect_uri: str, request: Request):
+    return consent_preview(client_id, redirect_uri, request)
+
+@app.post("/oauth/revoke")
+def oauth_revoke(payload: RevokeRequest, request: Request):
+    return revoke_client_tokens(payload, request)
 
 @app.post("/oauth/authorize")
 def oauth_authorize(payload: AuthorizeRequest, request: Request):
