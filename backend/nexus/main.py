@@ -123,6 +123,20 @@ def mission_control(request: Request):
 def operator_overview(user: dict = Depends(require_role("owner", "operator", "viewer"))):
     return {"username": user["username"], "roles": user["roles"], "projects": "not-yet-enabled", "execution_enabled": False}
 
+@app.get("/api/meshy/balance")
+def meshy_owner_balance(user: dict = Depends(require_role("owner"))):
+    """Owner-only Meshy API balance. Never exposed via generic MCP read scope."""
+    from .meshy_reader import balance
+    return balance()
+
+
+@app.get("/api/meshy/tasks")
+def meshy_owner_tasks(user: dict = Depends(require_role("owner"))):
+    """Owner-only sanitized task summaries; no model URLs or prompts."""
+    from .meshy_reader import text_tasks
+    return text_tasks()
+
+
 @app.get("/api/admin/overview")
 def admin_overview(user: dict = Depends(require_role("owner"))):
     return {"username": user["username"], "management_enabled": False}
