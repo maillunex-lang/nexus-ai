@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status", "nexus_godot_build_android", "nexus_godot_build_status", "nexus_godot_apk_download_link", "nexus_godot_build_project"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status", "nexus_godot_build_android", "nexus_godot_build_status", "nexus_godot_apk_download_link", "nexus_godot_build_project", "nexus_godot_register_project", "nexus_godot_registration_status"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -442,3 +442,20 @@ def nexus_godot_build_project(project_id: str = "basheco") -> dict:
     """
     from .godot_one_command import start
     return start(project_id)
+
+@mcp.tool()
+def nexus_godot_register_project(project_id: str, source_type: str, source: str) -> dict:
+    """Register a Godot project from public GitHub or a permitted Lunex directory.
+
+    Owner OAuth write required. Creates an inspection-only snapshot; does not
+    automatically authorize builds or execute untrusted project code.
+    """
+    from .godot_project_onboarding import request
+    return request(project_id,source_type,source)
+
+
+@mcp.tool()
+def nexus_godot_registration_status(job_id: str) -> dict:
+    """Read your Godot project registration job result."""
+    from .godot_project_onboarding import status
+    return status(job_id)
