@@ -10,6 +10,7 @@ import traceback
 from pathlib import Path
 from godot_agent_workspace import run
 from godot_android_build import build as build_android
+from godot_onboarding_worker import main as process_onboarding
 
 BASE=Path("/opt/nexus-ai/godot-queue")
 WORKSPACES=Path("/opt/nexus-ai/godot-workspaces")
@@ -125,6 +126,7 @@ def main():
     for file in sorted((BASE/"build_pending").glob("godot-*.json"))[:1]:
         process_build(file)
         count+=1
+    process_onboarding()
     print("processed",count)
 
 if __name__=="__main__":
