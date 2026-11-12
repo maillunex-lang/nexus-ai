@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status", "nexus_godot_build_android", "nexus_godot_build_status", "nexus_godot_apk_download_link", "nexus_godot_build_project", "nexus_godot_register_project", "nexus_godot_registration_status"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status", "nexus_godot_build_android", "nexus_godot_build_status", "nexus_godot_apk_download_link", "nexus_godot_build_project", "nexus_godot_register_project", "nexus_godot_registration_status", "nexus_godot_registered_projects", "nexus_director_capabilities", "nexus_director_run", "nexus_director_status"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -465,3 +465,27 @@ def nexus_godot_registered_projects() -> dict:
     """List your newly imported inspection-only Godot projects."""
     from .godot_project_onboarding import list_registered
     return list_registered()
+
+@mcp.tool()
+def nexus_director_capabilities() -> dict:
+    """Available rule-based workflows; no LLM or external AI API."""
+    from .autonomous_director import capabilities
+    return capabilities()
+
+
+@mcp.tool()
+def nexus_director_run(project_id: str, workflow: str = "validate_and_build_android") -> dict:
+    """Run a deterministic owner-authorized project workflow asynchronously.
+
+    Only explicitly build-enabled projects. Does not edit original source,
+    invent code fixes, publish releases or invoke an AI API.
+    """
+    from .autonomous_director import run
+    return run(project_id,workflow)
+
+
+@mcp.tool()
+def nexus_director_status(job_id: str) -> dict:
+    """Read an owned autonomous workflow status, including failure or APK metadata."""
+    from .autonomous_director import check
+    return check(job_id)
