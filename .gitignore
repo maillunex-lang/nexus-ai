@@ -6,3 +6,6 @@ __pycache__/
 node_modules/
 dist/
 *.pyc
+
+# Local API secrets (never commit)
+secrets/
