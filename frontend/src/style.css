@@ -1,3 +1,36 @@
 *{box-sizing:border-box}body{margin:0;background:#0a1220;color:#e7eef8;font-family:Inter,system-ui,-apple-system,sans-serif}main{max-width:1080px;margin:auto;padding:42px 24px}header{display:flex;align-items:center;gap:16px}h1{margin:0;font-size:23px;letter-spacing:2px}header p{margin:4px 0;color:#91a5bd}.mark{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:#1e4361;color:#65d6cb;font-size:30px}.hero{background:linear-gradient(130deg,#142b43,#102039);border:1px solid #2c435e;border-radius:24px;padding:42px;margin-top:42px}.eyebrow{color:#6ed8c7;font-size:12px;letter-spacing:2px}h2{font-size:clamp(27px,4vw,44px);max-width:700px;margin:18px 0}.hero p{color:#b3c5d8;max-width:650px;line-height:1.6}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:24px}article{background:#152339;border:1px solid #2a3d57;border-radius:17px;padding:22px}small{display:block;color:#95a8c1;margin-bottom:16px}strong{font-size:18px;overflow-wrap:anywhere}.error{color:#fca5a5}footer{color:#7e94ad;margin-top:35px;font-size:13px}@media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}.hero{padding:24px}}
 
 .auth{margin-top:24px;border:1px solid #2a3d57;border-radius:20px;padding:28px;background:#142339;max-width:650px}.auth h2{font-size:23px;margin:0 0 20px}.auth form{display:grid;gap:16px}.auth label{display:grid;gap:7px;color:#b3c5d8;font-size:14px}.auth input{width:100%;border:1px solid #49617d;background:#0a1729;border-radius:10px;padding:12px 14px;color:#fff;font:inherit}.auth input:focus{outline:2px solid #6ed8c7}.auth button{border:0;border-radius:10px;background:#62d1c2;color:#062a30;font-weight:700;padding:12px 20px;cursor:pointer;justify-self:start}.auth button:disabled{opacity:.6;cursor:wait}.hint{font-size:13px;color:#91a5bd;line-height:1.5}
+
+/* Mobile-first containment: never force horizontal viewport scrolling. */
+html{width:100%;max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
+body,#root{width:100%;max-width:100%;min-width:0;overflow-x:clip}
+main{width:100%;min-width:0}
+.hero,.auth,.grid,article{min-width:0;max-width:100%}
+.hero p,.auth p{overflow-wrap:anywhere}
+.auth input{min-width:0;max-width:100%}
+.auth button{max-width:100%;white-space:normal;text-align:center}
+@media(max-width:700px){
+ main{padding:20px 14px 36px}
+ header{gap:10px}
+ header h1{font-size:20px}
+ header p{font-size:12px}
+ .mark{width:42px;height:42px;flex:none}
+ .hero{margin-top:22px;padding:24px 20px;border-radius:18px}
+ .hero h2{font-size:clamp(25px,7vw,34px);line-height:1.16}
+ .hero p{font-size:14px;line-height:1.55}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+ article{padding:15px 13px;border-radius:14px}
+ article small{font-size:12px;margin-bottom:10px}
+ article strong{font-size:clamp(13px,3.6vw,17px)}
+ .auth{margin-top:14px;padding:22px 17px;border-radius:16px}
+ .auth h2{font-size:22px}
+ .auth label{font-size:13px}
+ footer{line-height:1.5}
+}
+@media(max-width:360px){
+ main{padding-inline:10px}
+ .grid{gap:8px}
+ article{padding:12px 10px}
+ .hero{padding:20px 15px}
+}
