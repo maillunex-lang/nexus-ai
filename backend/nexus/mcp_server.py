@@ -500,3 +500,34 @@ def nexus_director_create_project(project_id: str, title: str) -> dict:
     """
     from .godot_project_onboarding import request
     return request(project_id,"template",title)
+
+@mcp.tool()
+def nexus_director_workflows() -> dict:
+    """List supported deterministic workflows and failure handling policies."""
+    from .director_workflows import workflows
+    return workflows()
+
+
+@mcp.tool()
+def nexus_director_launch(workflow: str, project_id: str, source: str = "") -> dict:
+    """Launch a rule-based workflow: inspect, build APK, import GitHub/Lunex or create a starter.
+
+    Requires owner write. All actions use existing bounded queues and isolated
+    copies; no code modification, AI APIs or automatic publishing.
+    """
+    from .director_workflows import launch
+    return launch(workflow,project_id,source)
+
+
+@mcp.tool()
+def nexus_director_task_status(director_job_id: str) -> dict:
+    """Read current state and step of your rule-based director task."""
+    from .director_workflows import inspect
+    return inspect(director_job_id)
+
+
+@mcp.tool()
+def nexus_director_task_journal(director_job_id: str) -> dict:
+    """Read up to 100 durable timestamped events for your director task."""
+    from .director_workflows import journal
+    return journal(director_job_id)
