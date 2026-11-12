@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request, Response, Depends
 from .mcp_server import mcp
 from .db import database_ok
 from .security import MCPBearerGuard
 from .identity import LoginRequest, login, logout, current_user
+from .permissions import require_role
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,5 +42,13 @@ def auth_me(request: Request):
 @app.post("/api/auth/logout")
 def auth_logout(request: Request, response: Response):
     return logout(request, response)
+
+@app.get("/api/operator/overview")
+def operator_overview(user: dict = Depends(require_role("owner", "operator", "viewer"))):
+    return {"username": user["username"], "roles": user["roles"], "projects": "not-yet-enabled", "execution_enabled": False}
+
+@app.get("/api/admin/overview")
+def admin_overview(user: dict = Depends(require_role("owner"))):
+    return {"username": user["username"], "management_enabled": False}
 
 app.mount("/mcp", mcp.streamable_http_app())
