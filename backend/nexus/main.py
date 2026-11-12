@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, Response, Depends
 from .mcp_server import mcp
 from .db import database_ok
 from .security import MCPBearerGuard
-from .identity import LoginRequest, login, logout, current_user
+from .identity import LoginRequest, ChangePasswordRequest, change_own_password, login, logout, current_user
 from .permissions import require_role
 from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
@@ -48,6 +48,10 @@ def auth_me(request: Request):
 @app.post("/api/auth/logout")
 def auth_logout(request: Request, response: Response):
     return logout(request, response)
+
+@app.post("/api/auth/change-password")
+def auth_change_password(payload: ChangePasswordRequest, request: Request, response: Response):
+    return change_own_password(payload, request, response)
 
 @app.get("/api/operator/overview")
 def operator_overview(user: dict = Depends(require_role("owner", "operator", "viewer"))):
