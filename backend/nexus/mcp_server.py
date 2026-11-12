@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -107,3 +107,39 @@ def nexus_meshy_text_to_3d_preview(prompt: str, art_style: str = "realistic", mo
     """Preview a Meshy text-to-3D request and approval requirements. Does NOT generate a model, use credits, or call Meshy."""
     from .meshy_proposals import preview_text_to_3d
     return preview_text_to_3d(prompt, art_style, mode)
+
+@mcp.tool()
+def nexus_meshy_my_requests() -> dict:
+    """List only the current OAuth owner's Meshy requests; no paid actions."""
+    from .mcp_principal import require_owner
+    from .db import connection
+    principal = require_owner()
+    with connection() as conn:
+        rows = conn.execute("""SELECT id,status,dispatch_state,max_credits,provider_task_id
+          FROM meshy_requests WHERE created_by=%s ORDER BY created_at DESC LIMIT 25""",
+          (principal["user_id"],)).fetchall()
+    return {"requests":[{"id":str(r[0]),"approval":r[1],"dispatch":r[2],
+             "max_credits":r[3],"task_id":r[4]} for r in rows], "read_only":True}
+
+
+@mcp.tool()
+def nexus_meshy_request_status(request_id: str) -> dict:
+    """Read one owned request and Meshy progress, never disclose signed download URLs."""
+    from uuid import UUID
+    from .mcp_principal import require_owner
+    from .db import connection
+    from .meshy_reader import task_status
+    principal = require_owner()
+    try:
+        identifier = UUID(request_id)
+    except (ValueError, TypeError, AttributeError):
+        return {"error":"invalid_request_id"}
+    with connection() as conn:
+        row = conn.execute("""SELECT status,dispatch_state,provider_task_id FROM meshy_requests
+          WHERE id=%s AND created_by=%s""",(identifier,principal["user_id"])).fetchone()
+    if not row:
+        return {"error":"request_not_found"}
+    result = {"id":str(identifier),"approval":row[0],"dispatch":row[1],"task_id":row[2]}
+    if row[2]:
+        result["provider"] = task_status(row[2])
+    return result
