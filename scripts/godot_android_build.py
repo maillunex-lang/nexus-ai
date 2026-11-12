@@ -76,7 +76,7 @@ def build(job_id,timeout=240):
         for key,value in updates.items():
             lines=[line for line in lines if not line.startswith(key+" = ")]
             lines.append(key+" = "+value)
-        settings.write_text("\\n".join(lines)+"\\n")
+        settings.write_text("\n".join(lines)+"\n")
 
     if apk.exists():
         raise ValueError("artifact_already_exists")
@@ -88,6 +88,7 @@ def build(job_id,timeout=240):
              "--ro-bind","/lib64","/lib64","--ro-bind","/bin","/bin",
              "--ro-bind","/opt/game-tools","/opt/game-tools",
              "--ro-bind","/opt/android-sdk","/opt/android-sdk",
+             "--ro-bind","/usr/lib/jvm","/usr/lib/jvm",
              "--bind",str(workspace),"/workspace",
              "--tmpfs","/tmp","--dir","/home","--bind",str(home),"/home/nexus",
              "--ro-bind",str(templates),"/home/nexus/.local/share/godot/export_templates",
@@ -98,7 +99,7 @@ def build(job_id,timeout=240):
         p=subprocess.run(command,capture_output=True,text=True,timeout=timeout,
                          env={"PATH":"/usr/local/bin:/usr/bin:/bin","HOME":"/home/nexus",
                               "ANDROID_HOME":"/opt/android-sdk","ANDROID_SDK_ROOT":"/opt/android-sdk",
-                              "JAVA_HOME":"/usr/lib/jvm/default-java","LANG":"C.UTF-8"})
+                              "JAVA_HOME":"/usr/lib/jvm/java-17-openjdk-amd64","LANG":"C.UTF-8"})
         log=(p.stdout+"\n"+p.stderr)[-9000:]
         timed_out=False
         code=p.returncode
