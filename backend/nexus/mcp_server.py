@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -393,3 +393,20 @@ def nexus_godot_workspace_report(job_id: str) -> dict:
     """Read an isolated Godot validation report by exact job ID. Never runs or modifies a game."""
     from .godot_workspace_reports import report
     return report(job_id)
+
+@mcp.tool()
+def nexus_godot_validate_change(project_id: str, relative_path: str, expected_sha256: str, proposed_content: str) -> dict:
+    """Queue SHA-pinned Godot change validation in an isolated copy, never original.
+
+    Owner OAuth mcp:write is required. Runs asynchronously via separate sandboxed
+    host worker. Use nexus_godot_validation_status with returned job_id.
+    """
+    from .godot_job_queue import submit
+    return submit(project_id,relative_path,expected_sha256,proposed_content)
+
+
+@mcp.tool()
+def nexus_godot_validation_status(job_id: str) -> dict:
+    """Check an owned isolated Godot change-validation job by ID."""
+    from .godot_job_queue import status
+    return status(job_id)
