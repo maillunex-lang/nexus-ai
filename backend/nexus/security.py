@@ -1,6 +1,7 @@
 """Temporary deny-by-default MCP gateway guard, NOT an OAuth implementation."""
 import hmac
 import os
+from .oauth_server import oauth_token_identity
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 
@@ -17,7 +18,7 @@ class MCPBearerGuard:
         headers = dict(scope.get("headers", []))
         authorization = headers.get(b"authorization", b"").decode("latin1")
         expected = "Bearer " + secret
-        if len(secret) < 32 or not hmac.compare_digest(authorization, expected):
+        if not ((len(secret) >= 32 and hmac.compare_digest(authorization, expected)) or (authorization.startswith("Bearer ") and oauth_token_identity(authorization[7:]))):
             body = b'{"detail":"MCP authentication required"}'
             await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json"), (b"www-authenticate", b"Bearer"), (b"cache-control", b"no-store")]})
             await send({"type": "http.response.body", "body": body})
