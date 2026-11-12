@@ -13,7 +13,9 @@ from godot_android_build import build as build_android
 
 BASE=Path("/opt/nexus-ai/godot-queue")
 WORKSPACES=Path("/opt/nexus-ai/godot-workspaces")
-PROJECTS={"basheco":Path("/opt/basheco/client")}
+PROJECTS={"basheco":Path("/opt/basheco/client"),
+          "watermmo":Path("/opt/watermmo"),
+          "agroempire":Path("/opt/fermabash/project")}
 MAX_JOB=150000
 MAX_BATCH=3
 
@@ -66,7 +68,7 @@ def process_build(file):
         if data.get("kind")=="auto_android_debug_build":
             if set(data)!={"job_id","kind","project_id","requested_by"} or data.get("job_id")!=job:
                 raise ValueError("invalid_auto_build_request")
-            if data.get("project_id") not in PROJECTS or data.get("project_id")!="basheco":
+            if data.get("project_id") not in PROJECTS:
                 raise ValueError("project_not_allowlisted")
             if not isinstance(data.get("requested_by"),str) or not 1<=len(data["requested_by"])<=128:
                 raise ValueError("invalid_requester")
