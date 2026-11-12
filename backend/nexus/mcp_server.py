@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status", "nexus_godot_build_android", "nexus_godot_build_status"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -410,3 +410,19 @@ def nexus_godot_validation_status(job_id: str) -> dict:
     """Check an owned isolated Godot change-validation job by ID."""
     from .godot_job_queue import status
     return status(job_id)
+
+@mcp.tool()
+def nexus_godot_build_android(validation_job_id: str) -> dict:
+    """Queue a debug APK build from your successfully validated Godot change job.
+
+    Requires owner OAuth mcp:write; no original modification or publishing.
+    """
+    from .godot_build_queue import submit
+    return submit(validation_job_id)
+
+
+@mcp.tool()
+def nexus_godot_build_status(build_job_id: str) -> dict:
+    """Get the status, SHA-256 and size of your Android debug APK build."""
+    from .godot_build_queue import status
+    return status(build_job_id)
