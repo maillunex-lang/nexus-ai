@@ -4,7 +4,9 @@ import re
 from pathlib import Path
 from .godot_inspector import inspect_gdscript, inspect_shader
 
-PROJECTS={"basheco":{"name":"BASHECO","root":"/projects/basheco"}}
+PROJECTS={"basheco":{"name":"BASHECO","root":"/projects/basheco"},
+          "watermmo":{"name":"WaterMMO","root":"/projects/watermmo"},
+          "agroempire":{"name":"Agro Empire Online","root":"/projects/agroempire"}}
 EXTENSIONS={".tscn":"scene",".gd":"script",".gdshader":"shader",".tres":"resource"}
 MAX_FILES=1200
 MAX_BYTES=100_000
