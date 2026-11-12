@@ -11,6 +11,7 @@ def test_mcp_denied_without_secret(monkeypatch):
 
 
 def test_mcp_denied_with_invalid_secret(monkeypatch):
+    monkeypatch.setattr("nexus.security.oauth_token_identity", lambda token: False)
     monkeypatch.setenv("NEXUS_MCP_INTERNAL_TOKEN", "x"*48)
     client = TestClient(app, base_url="http://localhost")
     response = client.post("/mcp/", json={"jsonrpc":"2.0","id":1,"method":"tools/list"}, headers={"Authorization":"Bearer wrong"})
