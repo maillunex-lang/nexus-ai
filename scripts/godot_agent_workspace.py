@@ -109,14 +109,9 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             original,content=verified
             (workspace/original.relative_to(root)).write_bytes(content)
         # Editor plugins and @tool scripts may execute code: restrict host access.
-        if os.geteuid()==0:
-            for folder,dirs,names in os.walk(workspace):
-                os.chown(folder,65534,65534)
-                for name in names:
-                    os.chown(os.path.join(folder,name),65534,65534)
         executable=Path(executable).resolve(strict=True)
         command=[sandbox,"--die-with-parent","--unshare-net","--unshare-user",
-                 "--uid","65534","--gid","65534",
+                 "--uid","0","--gid","0",
                  "--ro-bind","/usr","/usr","--ro-bind","/lib","/lib",
                  "--ro-bind","/lib64","/lib64","--ro-bind","/bin","/bin",
                  "--ro-bind","/opt/game-tools","/opt/game-tools",
