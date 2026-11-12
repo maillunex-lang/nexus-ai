@@ -489,3 +489,14 @@ def nexus_director_status(job_id: str) -> dict:
     """Read an owned autonomous workflow status, including failure or APK metadata."""
     from .autonomous_director import check
     return check(job_id)
+
+@mcp.tool()
+def nexus_director_create_project(project_id: str, title: str) -> dict:
+    """Create a new Godot 4 starter project in an isolated NEXUS-owned directory.
+
+    Owner write authorization required. No GitHub repository, VPS game service,
+    APK, live deployment or arbitrary code execution is created automatically.
+    Check progress using nexus_godot_registration_status.
+    """
+    from .godot_project_onboarding import request
+    return request(project_id,"template",title)
