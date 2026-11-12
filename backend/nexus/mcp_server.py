@@ -59,3 +59,27 @@ def nexus_godot_project_file(project_id: str, relative_path: str) -> dict:
     """Read-only static analysis of a single .gd/.gdshader/.tscn/.tres or project.godot file, with strict path checks."""
     from .godot_projects import inspect_file
     return inspect_file(project_id,relative_path)
+
+@mcp.tool()
+def nexus_github_repositories() -> dict:
+    """List explicitly approved public GitHub repositories. No credentials or writes."""
+    from .github_reader import list_repositories
+    return list_repositories()
+
+@mcp.tool()
+def nexus_github_repository(repo_id: str = "nexus-ai") -> dict:
+    """Get public repository metadata and immutable default branch HEAD SHA."""
+    from .github_reader import repository_head
+    return repository_head(repo_id)
+
+@mcp.tool()
+def nexus_github_tree(repo_id: str, commit_sha: str) -> dict:
+    """Read a bounded repository tree at a full immutable 40-character commit SHA."""
+    from .github_reader import repository_tree
+    return repository_tree(repo_id, commit_sha)
+
+@mcp.tool()
+def nexus_github_file(repo_id: str, commit_sha: str, path: str) -> dict:
+    """Read bounded UTF-8 source from an allowlisted public repo at immutable commit SHA."""
+    from .github_reader import repository_file
+    return repository_file(repo_id, commit_sha, path)
