@@ -16,9 +16,10 @@ function App(){
  const [missionError,setMissionError]=useState('');
  const [tab,setTab]=useState<'overview'|'projects'|'approvals'|'audit'>('overview');
  const loadMission=async()=>{try{const r=await fetch('/nexusai/api/mission/overview',{credentials:'same-origin'});if(!r.ok)throw Error('Данные Mission Control недоступны');setMission(await r.json());setMissionError('')}catch(e){setMissionError(String(e))}};
- useEffect(()=>{if(user)loadMission();else setMission(null)},[user]);
  const [status,setStatus]=useState<Status|null>(null);
  const [user,setUser]=useState<User|null>(null);
+ useEffect(()=>{if(user)loadMission();else setMission(null)},[user]);
+
  const [username,setUsername]=useState('');
  const [password,setPassword]=useState('');
  const [currentPassword,setCurrentPassword]=useState('');
