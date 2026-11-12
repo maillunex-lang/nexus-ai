@@ -28,7 +28,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Browsers sending cross-site form requests must not mutate sessions.
         fetch_site = request.headers.get("sec-fetch-site", "")
         if fetch_site == "cross-site":
@@ -281,3 +281,22 @@ from .godot_apk_delivery import download as download_godot_apk
 @app.get("/api/godot/builds/{build_job_id}/apk")
 def godot_apk_download(build_job_id: str, expires: int, sha256: str, signature: str):
     return download_godot_apk(build_job_id,expires,sha256,signature)
+
+# Session-authenticated build management; does not grant MCP OAuth write scope.
+from . import dashboard_builds as dashboard_build
+
+@app.get("/api/dashboard/builds/projects")
+def dashboard_build_projects(request: Request):
+    return dashboard_build.projects(request)
+
+@app.post("/api/dashboard/builds/projects/{project_id}")
+def dashboard_build_start(project_id: str, request: Request):
+    return dashboard_build.enqueue(request, project_id)
+
+@app.get("/api/dashboard/builds/jobs/{job_id}")
+def dashboard_build_status(job_id: str, request: Request):
+    return dashboard_build.check(request, job_id)
+
+@app.post("/api/dashboard/builds/jobs/{job_id}/download")
+def dashboard_build_link(job_id: str, request: Request):
+    return dashboard_build.link(request, job_id)
