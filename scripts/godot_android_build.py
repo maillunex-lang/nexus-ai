@@ -35,7 +35,9 @@ def build(job_id,timeout=240):
     # A release key must never be mounted or requested.
     if not 30<=timeout<=300:
         raise ValueError("invalid_timeout")
-    executable=Path(shutil.which("godot")).resolve(strict=True)
+    executable=Path("/opt/game-tools/godot/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64")
+    if not executable.is_file():
+        raise ValueError("approved_godot_binary_unavailable")
     bwrap=shutil.which("bwrap")
     if not bwrap:
         raise ValueError("sandbox_unavailable")
