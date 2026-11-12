@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -41,3 +41,21 @@ def nexus_godot_inspect_shader(source: str, filename: str = "effect.gdshader") -
     """Statically inspect supplied Godot shader text for mobile performance risks. No file access or execution."""
     from .godot_inspector import inspect_shader
     return inspect_shader(source,filename)
+
+@mcp.tool()
+def nexus_godot_projects() -> dict:
+    """List only explicitly registered Godot projects; no arbitrary host paths."""
+    from .godot_projects import list_projects
+    return list_projects()
+
+@mcp.tool()
+def nexus_godot_project_report(project_id: str = "basheco", include_files: bool = False) -> dict:
+    """Read-only static inventory and bounded analysis of a registered Godot project."""
+    from .godot_projects import inspect_project
+    return inspect_project(project_id,include_files)
+
+@mcp.tool()
+def nexus_godot_project_file(project_id: str, relative_path: str) -> dict:
+    """Read-only static analysis of a single .gd/.gdshader/.tscn/.tres or project.godot file, with strict path checks."""
+    from .godot_projects import inspect_file
+    return inspect_file(project_id,relative_path)
