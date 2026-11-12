@@ -124,16 +124,18 @@ def operator_overview(user: dict = Depends(require_role("owner", "operator", "vi
     return {"username": user["username"], "roles": user["roles"], "projects": "not-yet-enabled", "execution_enabled": False}
 
 @app.get("/api/meshy/balance")
-def meshy_owner_balance(user: dict = Depends(require_role("owner"))):
+def meshy_owner_balance(response: Response, user: dict = Depends(require_role("owner"))):
     """Owner-only Meshy API balance. Never exposed via generic MCP read scope."""
     from .meshy_reader import balance
+    response.headers["Cache-Control"] = "no-store"
     return balance()
 
 
 @app.get("/api/meshy/tasks")
-def meshy_owner_tasks(user: dict = Depends(require_role("owner"))):
+def meshy_owner_tasks(response: Response, user: dict = Depends(require_role("owner"))):
     """Owner-only sanitized task summaries; no model URLs or prompts."""
     from .meshy_reader import text_tasks
+    response.headers["Cache-Control"] = "no-store"
     return text_tasks()
 
 
