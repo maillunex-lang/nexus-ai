@@ -88,6 +88,9 @@ def generate(folder,config):
             script+=['\t$Player.position += direction.normalized() * move_speed * delta']
         script+=['']
     (root/"scripts"/"main.gd").write_text("\n".join(script))
+    if "android" in config["platforms"]:
+        from godot_mobile_quality import add_quality_menu
+        add_quality_menu(root)
     (root/"wizard.json").write_text(json.dumps(config,ensure_ascii=False,indent=2))
     return {"dimension":dimension,"genre":config["genre"],"platforms":config["platforms"],
             "controls":config["controls"],"systems":config["systems"],"template_only":True}
