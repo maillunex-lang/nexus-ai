@@ -99,3 +99,37 @@ def logout(request: Request, response: Response) -> dict:
     response.delete_cookie(COOKIE_NAME, path="/", secure=True, httponly=True, samesite="strict")
     response.headers["Cache-Control"] = "no-store"
     return {"ok":True}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=14, max_length=1024)
+
+
+def change_own_password(payload: ChangePasswordRequest, request: Request, response: Response) -> dict:
+    user = current_user(request)
+    if payload.current_password == payload.new_password:
+        raise HTTPException(400, "New password must differ")
+    with connection() as conn:
+        with conn.transaction():
+            row = conn.execute(
+                "SELECT password_hash FROM users WHERE id=%s AND disabled_at IS NULL FOR UPDATE",
+                (user["id"],),
+            ).fetchone()
+            if not row or not verify_password(payload.current_password, row[0]):
+                raise HTTPException(401, "Current password incorrect")
+            conn.execute(
+                "UPDATE users SET password_hash=%s WHERE id=%s",
+                (hash_password(payload.new_password), user["id"]),
+            )
+            conn.execute(
+                "UPDATE user_sessions SET revoked_at=now() WHERE user_id=%s AND revoked_at IS NULL",
+                (user["id"],),
+            )
+            conn.execute(
+                "UPDATE oauth_access_tokens SET revoked_at=now() WHERE user_id=%s AND revoked_at IS NULL",
+                (user["id"],),
+            )
+    response.delete_cookie(COOKIE_NAME, path="/", secure=True, httponly=True, samesite="strict")
+    response.headers["Cache-Control"] = "no-store"
+    return {"password_changed": True, "sessions_revoked": True, "oauth_tokens_revoked": True}
