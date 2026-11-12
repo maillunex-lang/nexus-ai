@@ -557,3 +557,20 @@ def nexus_director_game_wizard_create(project_id: str, title: str, dimension: st
     return request(project_id,"wizard",json.dumps({"title":title,"dimension":dimension,
                    "genre":genre,"platforms":platforms,"controls":controls,
                    "systems":systems},ensure_ascii=False))
+
+@mcp.tool()
+def nexus_graphics_enhancer_catalog() -> dict:
+    """List built-in renderer-aware graphics effects and quality profiles, without AI APIs."""
+    from .graphics_enhancer import catalog
+    return catalog()
+
+
+@mcp.tool()
+def nexus_graphics_enhancer_audit(project_id: str, profile: str = "balanced") -> dict:
+    """Audit a Godot game's graphics without changing project files.
+
+    Returns detected features, candidate improvements and mobile-friendly
+    quality budget. Requires owner OAuth read/write; never applies effects.
+    """
+    from .graphics_enhancer import audit
+    return audit(project_id,profile)
