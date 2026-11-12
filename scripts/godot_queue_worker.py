@@ -63,27 +63,45 @@ def process_build(file):
     data={}
     try:
         data=json.loads(running.read_text(encoding="utf-8"))
-        if set(data)!={"job_id","kind","validation_job_id","workspace_job_id","requested_by"}:
-            raise ValueError("invalid_job_shape")
-        if data["job_id"]!=job or data["kind"]!="android_debug_build":
-            raise ValueError("invalid_job")
-        validation_id=data["validation_job_id"]
-        workspace_id=data["workspace_job_id"]
-        if not isinstance(validation_id,str) or not validation_id.startswith("godot-") or len(validation_id)!=38:
-            raise ValueError("invalid_validation_id")
-        completed=BASE/"completed"/(validation_id+".json")
-        if completed.is_symlink() or not completed.is_file():
-            raise ValueError("validation_unavailable")
-        validated=json.loads(completed.read_text(encoding="utf-8"))
-        if validated.get("requested_by")!=data["requested_by"] or not validated.get("result",{}).get("passed"):
-            raise ValueError("validation_owner_mismatch")
-        if validated["result"].get("workspace_job_id")!=workspace_id:
-            raise ValueError("workspace_mismatch")
-        report=build_android(workspace_id)
-        result={k:report.get(k) for k in ("passed","exit_code","timed_out","bytes","sha256","original_modified","published")}
-        result["workspace_job_id"]=workspace_id
-        result["log"]=report.get("log","")[-3000:]
-        state="build_completed" if report["passed"] else "build_failed"
+        if data.get("kind")=="auto_android_debug_build":
+            if set(data)!={"job_id","kind","project_id","requested_by"} or data.get("job_id")!=job:
+                raise ValueError("invalid_auto_build_request")
+            if data.get("project_id") not in PROJECTS or data.get("project_id")!="basheco":
+                raise ValueError("project_not_allowlisted")
+            if not isinstance(data.get("requested_by"),str) or not 1<=len(data["requested_by"])<=128:
+                raise ValueError("invalid_requester")
+            validation=run(PROJECTS[data["project_id"]],WORKSPACES,None,timeout=120)
+            if not validation.get("passed"):
+                raise ValueError("godot_validation_failed:"+str(validation.get("godot_output",""))[-200:])
+            report=build_android(validation["job_id"])
+            result={k:report.get(k) for k in ("passed","exit_code","timed_out","bytes","sha256","original_modified","published")}
+            result["workspace_job_id"]=validation["job_id"]
+            result["validation_passed"]=True
+            result["project_id"]=data["project_id"]
+            result["log"]=report.get("log","")[-3000:]
+            state="build_completed" if report["passed"] else "build_failed"
+        else:
+            if set(data)!={"job_id","kind","validation_job_id","workspace_job_id","requested_by"}:
+                raise ValueError("invalid_job_shape")
+            if data["job_id"]!=job or data["kind"]!="android_debug_build":
+                raise ValueError("invalid_job")
+            validation_id=data["validation_job_id"]
+            workspace_id=data["workspace_job_id"]
+            if not isinstance(validation_id,str) or not validation_id.startswith("godot-") or len(validation_id)!=38:
+                raise ValueError("invalid_validation_id")
+            completed=BASE/"completed"/(validation_id+".json")
+            if completed.is_symlink() or not completed.is_file():
+                raise ValueError("validation_unavailable")
+            validated=json.loads(completed.read_text(encoding="utf-8"))
+            if validated.get("requested_by")!=data["requested_by"] or not validated.get("result",{}).get("passed"):
+                raise ValueError("validation_owner_mismatch")
+            if validated["result"].get("workspace_job_id")!=workspace_id:
+                raise ValueError("workspace_mismatch")
+            report=build_android(workspace_id)
+            result={k:report.get(k) for k in ("passed","exit_code","timed_out","bytes","sha256","original_modified","published")}
+            result["workspace_job_id"]=workspace_id
+            result["log"]=report.get("log","")[-3000:]
+            state="build_completed" if report["passed"] else "build_failed"
     except Exception as exc:
         state="build_failed"
         result={"passed":False,"error":type(exc).__name__+":"+str(exc)[:240],"published":False}
