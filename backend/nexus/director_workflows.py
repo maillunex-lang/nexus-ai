@@ -124,6 +124,16 @@ def inspect(job_id:str)->dict:
  record=_read(job_id,user)
  if record is None:return {"error":"not_found"}
  result=_evaluate(record)
+ path=BASE/"events"/(job_id+".jsonl")
+ if not path.is_symlink():
+  try:
+   lines=path.read_text().splitlines()
+   previous=json.loads(lines[-1]) if lines else {}
+   signature={"state":result["state"],"step":result.get("step"),"error":result.get("error")}
+   if any(previous.get(k)!=v for k,v in signature.items()):
+    _append(job_id,{"event":"transition",**signature,"policy":result.get("policy")})
+  except (OSError,ValueError):
+   pass
  return {"director_job_id":job_id,"workflow":record["workflow"],
          "project_id":record["project_id"],**result,
          "published":False,"source_modified":False}
