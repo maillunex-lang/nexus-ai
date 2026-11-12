@@ -10,13 +10,10 @@ def test_approval_endpoints_reject_unauthenticated():
     assert c.post("/api/meshy/requests",json={"prompt":"A realistic farm tractor","max_credits":20}).status_code==401
 
 def test_approval_endpoints_reject_viewer():
-    app.dependency_overrides[current_user]=lambda:{"id":"test","roles":["viewer"],"username":"viewer"}
-    try:
+    with patch("nexus.meshy_approvals.current_user", return_value={"id":"test","roles":["viewer"],"username":"viewer"}):
         c=TestClient(app,base_url="http://localhost")
         assert c.get("/api/meshy/requests").status_code==403
         assert c.post("/api/meshy/requests",json={"prompt":"A realistic farm tractor","max_credits":20}).status_code==403
-    finally:
-        app.dependency_overrides.clear()
 
 def test_approval_input_limits():
     assert MeshyRequest(prompt="A realistic farm tractor",max_credits=1).max_credits==1
