@@ -142,3 +142,22 @@ def revoke_client_tokens(payload: RevokeRequest, request: Request) -> dict:
             (user["id"], payload.client_id),
         )
     return {"revoked": result.rowcount}
+
+def oauth_token_principal(token: str) -> dict | None:
+    """Resolve active OAuth token to a concrete user and scope, never a boolean."""
+    if not token or len(token) > 512:
+        return None
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT t.user_id,t.scope,array_agg(DISTINCT ur.role_id)
+               FROM oauth_access_tokens t
+               JOIN users u ON u.id=t.user_id
+               JOIN oauth_clients c ON c.client_id=t.client_id
+               JOIN user_roles ur ON ur.user_id=u.id
+               WHERE t.token_hash=%s AND t.revoked_at IS NULL AND t.expires_at>now()
+                 AND t.audience=%s AND t.scope='mcp:read'
+                 AND u.disabled_at IS NULL AND c.disabled_at IS NULL
+               GROUP BY t.user_id,t.scope""",
+            (token_digest(token),RESOURCE),
+        ).fetchone()
+    return {"user_id":str(row[0]),"scope":row[1],"roles":row[2]} if row else None
