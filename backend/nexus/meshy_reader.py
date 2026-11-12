@@ -9,6 +9,16 @@ from urllib.error import HTTPError, URLError
 
 BASE = "https://api.meshy.ai"
 MAX_BYTES = 160_000
+SECRET_PATH = "/run/secrets/meshy_api_key"
+
+
+def _key():
+    """Read a Docker-mounted secret without putting it in container environment."""
+    try:
+        with open(SECRET_PATH, "r", encoding="utf-8") as stream:
+            return stream.read(256).strip()
+    except (OSError, UnicodeError):
+        return ""
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -17,7 +27,7 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def _configured():
-    return bool(os.environ.get("NEXUS_MESHY_API_KEY", "").strip())
+    return bool(_key())
 
 
 def connection_status():
@@ -28,7 +38,7 @@ def connection_status():
 
 
 def _get(path):
-    key = os.environ.get("NEXUS_MESHY_API_KEY", "").strip()
+    key = _key()
     if not key:
         return {"error": "meshy_not_configured"}
     request = Request(BASE + path, method="GET", headers={
