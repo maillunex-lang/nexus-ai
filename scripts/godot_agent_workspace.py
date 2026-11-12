@@ -92,8 +92,9 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
     if not 5<=timeout<=300:
         raise ValueError("invalid_timeout")
     executable=shutil.which(godot)
-    if not executable:
-        raise ValueError("godot_unavailable")
+    sandbox=shutil.which("bwrap")
+    if not executable or not sandbox:
+        raise ValueError("godot_or_bubblewrap_unavailable")
     # Each run has a fresh isolated destination, never a shared project folder.
     job_id="godot-"+uuid.uuid4().hex
     workspace=parent/job_id
@@ -107,10 +108,25 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
         if verified:
             original,content=verified
             (workspace/original.relative_to(root)).write_bytes(content)
-        command=[executable,"--headless","--path",str(workspace),"--editor","--quit"]
+        # Editor plugins and @tool scripts may execute code: restrict host access.
+        if os.geteuid()==0:
+            for folder,dirs,names in os.walk(workspace):
+                os.chown(folder,65534,65534)
+                for name in names:
+                    os.chown(os.path.join(folder,name),65534,65534)
+        executable=Path(executable).resolve(strict=True)
+        command=[sandbox,"--die-with-parent","--unshare-net","--unshare-user",
+                 "--uid","65534","--gid","65534",
+                 "--ro-bind","/usr","/usr","--ro-bind","/lib","/lib",
+                 "--ro-bind","/lib64","/lib64","--ro-bind","/bin","/bin",
+                 "--ro-bind","/opt/game-tools","/opt/game-tools",
+                 "--bind",str(workspace),"/workspace",
+                 "--tmpfs","/tmp","--proc","/proc","--dev","/dev",
+                 "--chdir","/workspace",
+                 str(executable),"--headless","--path","/workspace","--editor","--quit"]
         try:
             proc=subprocess.run(command,cwd=str(workspace),capture_output=True,text=True,
-                                timeout=timeout,check=False,env={**os.environ,"HOME":str(workspace)})
+                                timeout=timeout,check=False,env={"PATH":"/usr/local/bin:/usr/bin:/bin","HOME":"/workspace","XDG_CACHE_HOME":"/tmp","XDG_CONFIG_HOME":"/tmp","LANG":"C.UTF-8"})
             output=(proc.stdout+"\n"+proc.stderr)[-MAX_LOG:]
             exit_code=proc.returncode
             timed_out=False
