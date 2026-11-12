@@ -5,7 +5,7 @@ from nexus.main import app
 @pytest.fixture(scope="module")
 def client():
     # FastMCP's session manager can only be started once per app instance.
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://localhost") as test_client:
         yield test_client
 
 def test_health(client):
