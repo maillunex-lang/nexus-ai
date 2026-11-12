@@ -113,3 +113,18 @@ def repository_file(repo_id, commit_sha, path):
         return {"error": "not_utf8_text"}
     return {"repository": repo_id, "commit_sha": commit_sha, "path": path,
             "content": content, "size": len(raw), "read_only": True}
+
+def repository_head(repo_id):
+    info = repository_info(repo_id)
+    if "error" in info:
+        return info
+    branch = info.get("default_branch")
+    if not isinstance(branch, str) or not re.fullmatch(r"[a-zA-Z0-9_.-]{1,100}", branch):
+        return {"error": "invalid_default_branch"}
+    data = _api("/repos/" + REPOSITORIES[repo_id] + "/commits/" + quote(branch, safe=""))
+    if not isinstance(data, dict) or "error" in data:
+        return data
+    sha = data.get("sha")
+    if not isinstance(sha, str) or not SHA.fullmatch(sha):
+        return {"error": "invalid_upstream_response"}
+    return {**info, "head_sha": sha}
