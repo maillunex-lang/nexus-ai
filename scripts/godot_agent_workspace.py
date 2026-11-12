@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -110,7 +111,7 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             (workspace/original.relative_to(root)).write_bytes(content)
         # Editor plugins and @tool scripts may execute code: restrict host access.
         executable=Path(executable).resolve(strict=True)
-        command=[sandbox,"--die-with-parent","--unshare-net","--unshare-user",
+        command=[sandbox,"--die-with-parent","--unshare-net","--unshare-pid","--unshare-user",
                  "--uid","0","--gid","0",
                  "--ro-bind","/usr","/usr","--ro-bind","/lib","/lib",
                  "--ro-bind","/lib64","/lib64","--ro-bind","/bin","/bin",
@@ -129,11 +130,13 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             output=str(exc)[-MAX_LOG:]
             exit_code=None
             timed_out=True
+        detected_errors=len(re.findall(r"(?m)^\\s*(?:ERROR:|SCRIPT ERROR:|Parse Error:)",output))
         report={"job_id":job_id,"workspace":str(workspace),"source_project":str(root),
                 "source_files":len(files),"source_bytes":total,
                 "patch_applied_to_copy":bool(verified),"original_modified":False,
                 "godot_exit_code":exit_code,"timed_out":timed_out,
-                "passed":exit_code==0 and not timed_out,
+                "godot_errors":detected_errors,
+                "passed":exit_code==0 and not timed_out and detected_errors==0,
                 "godot_output":output,"timestamp":int(time.time())}
         (workspace/"nexus_godot_report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
         return report
