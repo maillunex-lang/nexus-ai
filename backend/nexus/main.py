@@ -160,6 +160,23 @@ def meshy_request_glb(request_id: UUID, request: Request, response: Response):
     response.headers["Referrer-Policy"] = "no-referrer"
     return meshy_glb_link(request_id,request)
 
+from .meshy_refine import RefineCreate, RefineReview, create as create_refine, review as review_refine, inspect as inspect_refine
+
+@app.post("/api/meshy/refine", status_code=201)
+def meshy_refine_create(payload: RefineCreate, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return create_refine(payload,request)
+
+@app.post("/api/meshy/refine/{request_id}/review")
+def meshy_refine_review(request_id: UUID, payload: RefineReview, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return review_refine(request_id,payload,request)
+
+@app.get("/api/meshy/refine/{request_id}")
+def meshy_refine_status(request_id: UUID, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return inspect_refine(request_id,request)
+
 @app.get("/api/meshy/balance")
 def meshy_owner_balance(response: Response, user: dict = Depends(require_role("owner"))):
     """Owner-only Meshy API balance. Never exposed via generic MCP read scope."""
