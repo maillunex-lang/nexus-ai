@@ -198,8 +198,8 @@ def admin_overview(user: dict = Depends(require_role("owner"))):
     return {"username": user["username"], "management_enabled": False}
 
 @app.get("/oauth/consent")
-def oauth_consent(client_id: str, redirect_uri: str, request: Request):
-    return consent_preview(client_id, redirect_uri, request)
+def oauth_consent(client_id: str, redirect_uri: str, request: Request, scope: str = "mcp:read"):
+    return consent_preview(client_id, redirect_uri, request, scope)
 
 @app.post("/oauth/revoke")
 def oauth_revoke(payload: RevokeRequest, request: Request):
@@ -252,7 +252,7 @@ def oauth_metadata():
         "grant_types_supported": ["authorization_code"],
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": ["none"],
-        "scopes_supported": ["mcp:read"],
+        "scopes_supported": ["mcp:read", "mcp:write"],
     }
 
 
@@ -260,7 +260,7 @@ def oauth_metadata():
 def oauth_resource_metadata():
     issuer = configured_issuer()
     return {"resource": issuer + "/mcp/", "authorization_servers": [issuer],
-            "scopes_supported": ["mcp:read"], "bearer_methods_supported": ["header"]}
+            "scopes_supported": ["mcp:read", "mcp:write"], "bearer_methods_supported": ["header"]}
 
 app.mount("/mcp", mcp.streamable_http_app())
 
