@@ -11,6 +11,7 @@ from .security import MCPBearerGuard
 from .identity import LoginRequest, ChangePasswordRequest, change_own_password, login, logout, current_user
 from .permissions import require_role
 from .mission import overview as mission_overview
+from .agents import list_agents
 from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
 @asynccontextmanager
@@ -57,6 +58,10 @@ def auth_logout(request: Request, response: Response):
 @app.post("/api/auth/change-password")
 def auth_change_password(payload: ChangePasswordRequest, request: Request, response: Response):
     return change_own_password(payload, request, response)
+
+@app.get("/api/agents")
+def agents_catalog(request: Request):
+    return list_agents(request)
 
 @app.get("/api/mission/overview")
 def mission_control(request: Request):
