@@ -18,7 +18,24 @@ def request(project_id:str,source_type:str,source:str)->dict:
     user=require_owner_write()
     if not isinstance(project_id,str) or not ID.fullmatch(project_id):
         return {"error":"invalid_project_id"}
-    if source_type=="template":
+    if source_type=="wizard":
+        try:
+            config=json.loads(source)
+            if not isinstance(config,dict) or len(source)>2500 or set(config)!={"title","dimension","genre","platforms","controls","systems"}:
+                return {"error":"invalid_wizard_config"}
+            if not isinstance(config["title"],str) or not 1<=len(config["title"])<=70 or any(ord(c)<32 or c in "\\/<>\"" for c in config["title"]):
+                return {"error":"invalid_project_title"}
+            if config["dimension"] not in ("2d","3d") or config["genre"] not in ("sandbox","survival","strategy","economy","platformer") or config["controls"] not in ("touch","keyboard_mouse","gamepad"):
+                return {"error":"invalid_wizard_choice"}
+            if any(not isinstance(config[k],list) or not config[k] or len(config[k])!=len(set(map(str,config[k]))) or any(not isinstance(v,str) or v not in allowed for v in config[k]) for k,allowed in (("platforms",("android","web","pc")),("systems",("movement","camera","economy","inventory","day_night")))):
+                return {"error":"invalid_wizard_list"}
+            if config["controls"]=="touch" and "android" not in config["platforms"]:
+                return {"error":"touch_requires_android"}
+            if config["dimension"]=="3d" and config["genre"]=="platformer":
+                return {"error":"platformer_template_requires_2d"}
+        except (TypeError,ValueError,KeyError):
+            return {"error":"invalid_wizard_config"}
+    elif source_type=="template":
         if not isinstance(source,str) or not 1<=len(source)<=70 or any(ord(c)<32 or c in "\\/<>\"" for c in source):
             return {"error":"invalid_project_title"}
     elif source_type=="github":
