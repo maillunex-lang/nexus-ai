@@ -161,7 +161,7 @@ def oauth_token_principal(token: str) -> dict | None:
                JOIN oauth_clients c ON c.client_id=t.client_id
                JOIN user_roles ur ON ur.user_id=u.id
                WHERE t.token_hash=%s AND t.revoked_at IS NULL AND t.expires_at>now()
-                 AND t.audience=%s AND t.scope='mcp:read'
+                 AND t.audience=%s AND t.scope IN ('mcp:read','mcp:write')
                  AND u.disabled_at IS NULL AND c.disabled_at IS NULL
                GROUP BY t.user_id,t.scope""",
             (token_digest(token),RESOURCE),
