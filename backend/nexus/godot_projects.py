@@ -1,6 +1,7 @@
 """Allowlisted, bounded, read-only Godot source inventory. Never executes project code."""
 import os
 import re
+import json
 from pathlib import Path
 from .godot_inspector import inspect_gdscript, inspect_shader
 
@@ -13,10 +14,30 @@ MAX_BYTES=100_000
 MAX_REPORT_FINDINGS=80
 EXCLUDE={".git",".godot",".import","node_modules","build","dist",".venv"}
 
+def _entries():
+    entries=dict(PROJECTS)
+    directory=Path("/registered-projects")
+    if directory.is_dir():
+        for folder in sorted(directory.iterdir())[:200]:
+            if folder.is_symlink() or not folder.is_dir() or not re.fullmatch(r"[a-z][a-z0-9-]{2,39}",folder.name):
+                continue
+            manifest=folder/"manifest.json"
+            if manifest.is_symlink() or not manifest.is_file() or manifest.stat().st_size>4096:
+                continue
+            try:
+                meta=json.loads(manifest.read_text())
+            except (OSError,ValueError):
+                continue
+            if meta.get("project_id")!=folder.name or meta.get("build_enabled") is not False:
+                continue
+            if folder.name not in entries:
+                entries[folder.name]={"name":folder.name,"root":str(folder/"source"),"inspection_only":True}
+    return entries
+
 def _root(project_id):
-    if project_id not in PROJECTS:
+    if project_id not in _entries():
         raise ValueError("unknown_project")
-    root=Path(PROJECTS[project_id]["root"])
+    root=Path(_entries()[project_id]["root"])
     if root.is_symlink() or not root.is_dir() or not (root/"project.godot").is_file() or (root/"project.godot").is_symlink():
         raise ValueError("project_unavailable")
     return root
@@ -56,7 +77,7 @@ def _read(file,root):
     return data.decode("utf-8","replace")
 
 def list_projects():
-    return {"projects":[{"id":key,"name":entry["name"],"available":_available(key),"read_only":True} for key,entry in PROJECTS.items()],"execution_enabled":False}
+    return {"projects":[{"id":key,"name":entry["name"],"available":_available(key),"read_only":True} for key,entry in _entries().items()],"execution_enabled":False}
 
 def _available(key):
     try:
@@ -112,7 +133,7 @@ def inspect_project(project_id="basheco",include_files=False):
             for issue in result.get("findings",[]):
                 if len(findings)<MAX_REPORT_FINDINGS:
                     findings.append({"path":rel,**issue})
-    return {"project_id":project_id,"name":PROJECTS[project_id]["name"],
+    return {"project_id":project_id,"name":_entries()[project_id]["name"],
             "settings":project_settings,"counts":counts,"scene_nodes":scene_nodes,
             "scene_resources":scene_resources,"findings":findings[:MAX_REPORT_FINDINGS],
             "findings_truncated":len(findings)>=MAX_REPORT_FINDINGS,
