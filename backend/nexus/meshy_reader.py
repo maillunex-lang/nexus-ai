@@ -86,3 +86,18 @@ def text_tasks():
         return {"error": "invalid_response"}
     return {"tasks": [x for task in result[:10] if (x := _task_summary(task)) is not None],
             "read_only": True, "generation_enabled": False}
+
+def task_status(task_id: str):
+    """Read one provider task, without leaking signed download URLs."""
+    import re
+    if not isinstance(task_id, str) or not re.fullmatch(r"[a-zA-Z0-9-]{8,100}", task_id):
+        return {"error": "invalid_task_id"}
+    result = _get("/openapi/v2/text-to-3d/" + task_id)
+    if isinstance(result, dict) and "error" in result:
+        return result
+    summary = _task_summary(result)
+    if summary is None:
+        return {"error": "invalid_response"}
+    return {"task": summary, "glb_available": bool(
+        isinstance(result.get("model_urls"), dict) and result["model_urls"].get("glb")),
+        "read_only": True}
