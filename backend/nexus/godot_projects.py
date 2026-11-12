@@ -42,8 +42,6 @@ def _read(file,root):
     # Reject symlinks at every path component, including project root.
     if not file.is_relative_to(root):
         raise ValueError("path_outside_project")
-    for component in [root,*list(file.relative_to(root).parents)[::-1]]:
-        pass
     cursor=root
     for part in file.relative_to(root).parts:
         cursor=cursor/part
