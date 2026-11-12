@@ -29,7 +29,7 @@ def test_copy_patch_and_no_original_mutation(tmp_path):
         stdout="ok"
         stderr=""
         returncode=0
-    with patch.object(mod.shutil,"which",return_value="/usr/bin/godot"),patch.object(mod.subprocess,"run",return_value=Result()) as process:
+    with patch.object(mod.shutil,"which",return_value="/usr/local/bin/python"),patch.object(mod.subprocess,"run",return_value=Result()) as process:
         report=mod.run(root,parent,change)
     assert report["passed"]
     assert report["patch_applied_to_copy"]
