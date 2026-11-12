@@ -8,12 +8,12 @@ mcp = FastMCP("NEXUS AI", stateless_http=True, json_response=True, streamable_ht
 @mcp.tool()
 def nexus_status() -> dict:
     """Read the status of the NEXUS AI foundation service."""
-    return {"service": "nexus-ai", "version": "0.1.0-dev", "database": "connected" if database_ok() else "unavailable"}
+    return {"service": "nexus-ai", "version": "0.1.6-dev", "database": "connected" if database_ok() else "unavailable"}
 
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -29,3 +29,15 @@ def nexus_workflow() -> dict:
             "operations":["create_project","create_task","assign_agent","change_status","draft_director_plan"],
             "mcp_mutations_enabled":False,"remote_execution_enabled":False,
             "note":"MCP write tools require future per-user token authorization and explicit approvals."}
+
+@mcp.tool()
+def nexus_godot_inspect_script(source: str, filename: str = "script.gd") -> dict:
+    """Statically inspect supplied Godot 4 GDScript text for potential performance and lifecycle issues. No file access or execution."""
+    from .godot_inspector import inspect_gdscript
+    return inspect_gdscript(source,filename)
+
+@mcp.tool()
+def nexus_godot_inspect_shader(source: str, filename: str = "effect.gdshader") -> dict:
+    """Statically inspect supplied Godot shader text for mobile performance risks. No file access or execution."""
+    from .godot_inspector import inspect_shader
+    return inspect_shader(source,filename)
