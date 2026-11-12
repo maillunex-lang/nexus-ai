@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from .db import connection
 
 COOKIE_NAME = "nexus_session"
+COOKIE_PATH = "/nexusai"
 USERNAME = re.compile(r"^[a-z][a-z0-9_.-]{2,63}$")
 
 
@@ -68,7 +69,7 @@ def login(payload: LoginRequest, response: Response) -> dict:
             "INSERT INTO user_sessions(user_id,token_hash,expires_at) VALUES (%s,%s,now()+interval '12 hours')",
             (row[0],token_digest(token)),
         )
-    response.set_cookie(COOKIE_NAME, token, httponly=True, secure=True, samesite="strict", max_age=43200, path="/")
+    response.set_cookie(COOKIE_NAME, token, httponly=True, secure=True, samesite="strict", max_age=43200, path=COOKIE_PATH)
     response.headers["Cache-Control"] = "no-store"
     return {"username": username}
 
