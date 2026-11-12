@@ -63,7 +63,7 @@ def download(build_job_id:str,expires:int,sha256:str,signature:str):
         payload=json.loads(result_file.read_text(encoding="utf-8"))
     except (OSError,ValueError):
         raise HTTPException(404,"Build not found")
-    if payload.get("job_id")!=build_job_id:
+    if payload.get("job_id")!=build_job_id or not payload.get("requested_by"):
         raise HTTPException(404,"Build not found")
     result=payload.get("result",{})
     workspace_id=result.get("workspace_job_id")
