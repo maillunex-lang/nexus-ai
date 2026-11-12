@@ -34,3 +34,21 @@ main{width:100%;min-width:0}
  article{padding:12px 10px}
  .hero{padding:20px 15px}
 }
+
+.mission{margin-top:24px;border:1px solid #2a3d57;background:#101f33;border-radius:20px;padding:24px;min-width:0}
+.mission-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.mission-head h2{margin:8px 0;font-size:26px}
+.mission-head p{margin:0}
+.mission button{border:1px solid #38556e;background:#172c45;color:#e7eef8;border-radius:10px;padding:11px 15px;font:inherit;cursor:pointer}
+.mission button:focus-visible{outline:2px solid #6ed8c7}
+.mission .refresh{color:#73e0d1}
+.mission-tabs{display:flex;gap:8px;overflow-x:auto;max-width:100%;padding:18px 0 10px}
+.mission-tabs button{white-space:nowrap;font-size:14px}
+.mission-tabs button.selected{background:#19665f;border-color:#48cbb9}
+.mission-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mission-metrics article{padding:18px}
+.mission-content{padding-top:12px}
+.mission-list{list-style:none;padding:0;margin:0;display:grid;gap:9px}
+.mission-list li{padding:14px;background:#172c45;border:1px solid #2a3d57;border-radius:10px;overflow-wrap:anywhere}
+.mission-list small{margin:7px 0 0}
+@media(max-width:700px){.mission{padding:17px 13px;margin-top:14px}.mission-head h2{font-size:23px}.mission-metrics{grid-template-columns:1fr 1fr}.mission-metrics article:last-child{grid-column:1/-1}.mission-tabs button{padding:10px 12px}}
