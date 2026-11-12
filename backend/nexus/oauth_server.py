@@ -118,9 +118,13 @@ def oauth_token_identity(token: str) -> bool:
         ).fetchone())
 
 
-def consent_preview(client_id: str, redirect_uri: str, request: Request) -> dict:
+def consent_preview(client_id: str, redirect_uri: str, request: Request, scope: str = "mcp:read") -> dict:
     """Read-only preview; never issues a code or auto-approves."""
     user = current_user(request)
+    if scope not in ("mcp:read", "mcp:write"):
+        raise HTTPException(400, "Unsupported scope")
+    if scope == "mcp:write" and "owner" not in user["roles"]:
+        raise HTTPException(403, "Owner role required for write scope")
     if not validate_redirect_uri(redirect_uri):
         raise HTTPException(400, "Invalid redirect URI")
     with connection() as conn:
@@ -131,7 +135,7 @@ def consent_preview(client_id: str, redirect_uri: str, request: Request) -> dict
     if not row or redirect_uri not in row[1]:
         raise HTTPException(400, "Unregistered client or redirect URI")
     return {"client_id": client_id, "client_name": row[0], "redirect_uri": redirect_uri,
-            "scope": "mcp:read", "username": user["username"],
+            "scope": scope, "username": user["username"],
             "consent_required": True, "execution_enabled": False}
 
 
