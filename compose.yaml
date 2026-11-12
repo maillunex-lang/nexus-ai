@@ -24,6 +24,7 @@ services:
     volumes:
       - /opt/basheco/client:/projects/basheco:ro
       - /opt/nexus-ai/godot-workspaces:/godot-workspaces:ro
+      - /opt/nexus-ai/godot-queue:/godot-queue:rw
       - /opt/nexus-ai/secrets/meshy-api-key:/run/secrets/meshy_api_key:ro
     depends_on:
       db:
