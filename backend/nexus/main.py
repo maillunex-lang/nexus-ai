@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import parse_qs
 from pydantic import ValidationError
 from fastapi import HTTPException
+from fastapi.responses import RedirectResponse
 import os
 from fastapi import FastAPI, Request, Response, Depends
 from .mcp_server import mcp
@@ -63,6 +64,12 @@ def oauth_consent(client_id: str, redirect_uri: str, request: Request):
 @app.post("/oauth/revoke")
 def oauth_revoke(payload: RevokeRequest, request: Request):
     return revoke_client_tokens(payload, request)
+
+@app.get("/oauth/authorize")
+def oauth_authorize_browser(request: Request):
+    # The browser opens a same-origin SPA consent screen; no approval on GET.
+    from urllib.parse import urlencode
+    return RedirectResponse("/?" + urlencode([("oauth", "1"), *request.query_params.multi_items()]), status_code=303)
 
 @app.post("/oauth/authorize")
 def oauth_authorize(payload: AuthorizeRequest, request: Request):
