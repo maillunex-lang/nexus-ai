@@ -531,3 +531,29 @@ def nexus_director_task_journal(director_job_id: str) -> dict:
     """Read up to 100 durable timestamped events for your director task."""
     from .director_workflows import journal
     return journal(director_job_id)
+
+@mcp.tool()
+def nexus_director_game_wizard_options() -> dict:
+    """Available deterministic Godot game starter options. No AI API or cost."""
+    return {"dimensions":["2d","3d"],
+            "genres":["sandbox","survival","strategy","economy","platformer"],
+            "platforms":["android","web","pc"],
+            "controls":["touch","keyboard_mouse","gamepad"],
+            "systems":["movement","camera","economy","inventory","day_night"],
+            "note":"Generates a basic Godot 4 starter. Android/Web/PC are targets, not verified exports; touch and gamepad are metadata presets until their runtime input is implemented."}
+
+
+@mcp.tool()
+def nexus_director_game_wizard_create(project_id: str, title: str, dimension: str,
+                                     genre: str, platforms: list[str],
+                                     controls: str, systems: list[str]) -> dict:
+    """Create a safe, isolated Godot 4 starter from the game wizard.
+
+    Owner OAuth write required. Does not publish, create a GitHub repository,
+    modify existing games, or automatically enable APK builds.
+    """
+    import json
+    from .godot_project_onboarding import request
+    return request(project_id,"wizard",json.dumps({"title":title,"dimension":dimension,
+                   "genre":genre,"platforms":platforms,"controls":controls,
+                   "systems":systems},ensure_ascii=False))
