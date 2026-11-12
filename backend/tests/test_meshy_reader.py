@@ -38,7 +38,7 @@ def test_error_translation_and_no_redirect():
 
 def test_secret_file_read_without_env(tmp_path):
     secret = tmp_path / "key"
-    secret.write_text("test-secret\\n")
+    secret.write_text("test-secret\n")
     with patch.object(m, "SECRET_PATH", str(secret)):
         assert m._key() == "test-secret"
     with patch.object(m, "SECRET_PATH", str(tmp_path / "missing")):
