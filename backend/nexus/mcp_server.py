@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -83,3 +83,15 @@ def nexus_github_file(repo_id: str, commit_sha: str, path: str) -> dict:
     """Read bounded UTF-8 source from an allowlisted public repo at immutable commit SHA."""
     from .github_reader import repository_file
     return repository_file(repo_id, commit_sha, path)
+
+@mcp.tool()
+def nexus_github_change_preview(repo_id: str, base_sha: str, path: str, proposed_content: str, branch: str) -> dict:
+    """Preview an exact proposed file change as a bounded diff. Does not write, run tests or create PRs."""
+    from .github_proposals import preview_change
+    return preview_change(repo_id, base_sha, path, proposed_content, branch)
+
+@mcp.tool()
+def nexus_github_branch_policy() -> dict:
+    """Read safety requirements for future approval-gated branch and draft PR creation. No writes."""
+    from .github_proposals import branch_policy
+    return branch_policy()
