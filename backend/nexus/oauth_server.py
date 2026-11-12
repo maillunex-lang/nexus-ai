@@ -23,6 +23,7 @@ class AuthorizeRequest(BaseModel):
     code_challenge_method: str
     state: str = Field(min_length=8, max_length=1024)
     scope: str = Field(default="mcp:read", max_length=256)
+    consent: bool = False
 
 
 class TokenRequest(BaseModel):
@@ -36,6 +37,8 @@ class TokenRequest(BaseModel):
 def authorize(payload: AuthorizeRequest, request: Request) -> dict:
     # Explicit POST is the user consent action, not an automatic GET redirect.
     user = current_user(request)
+    if not payload.consent:
+        raise HTTPException(400, "Explicit consent required")
     if payload.response_type != "code" or payload.code_challenge_method != "S256":
         raise HTTPException(400, "Unsupported OAuth flow")
     if not CHALLENGE_PATTERN.fullmatch(payload.code_challenge) or payload.scope != "mcp:read":
@@ -107,3 +110,35 @@ def oauth_token_identity(token: str) -> bool:
                AND ur.role_id IN ('owner','operator','viewer') LIMIT 1""",
             (token_digest(token),RESOURCE),
         ).fetchone())
+
+
+def consent_preview(client_id: str, redirect_uri: str, request: Request) -> dict:
+    """Read-only preview; never issues a code or auto-approves."""
+    user = current_user(request)
+    if not validate_redirect_uri(redirect_uri):
+        raise HTTPException(400, "Invalid redirect URI")
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT client_name,redirect_uris FROM oauth_clients WHERE client_id=%s AND disabled_at IS NULL",
+            (client_id,),
+        ).fetchone()
+    if not row or redirect_uri not in row[1]:
+        raise HTTPException(400, "Unregistered client or redirect URI")
+    return {"client_id": client_id, "client_name": row[0], "redirect_uri": redirect_uri,
+            "scope": "mcp:read", "username": user["username"],
+            "consent_required": True, "execution_enabled": False}
+
+
+class RevokeRequest(BaseModel):
+    client_id: str = Field(min_length=1, max_length=255)
+
+
+def revoke_client_tokens(payload: RevokeRequest, request: Request) -> dict:
+    user = current_user(request)
+    with connection() as conn:
+        result = conn.execute(
+            """UPDATE oauth_access_tokens SET revoked_at=now()
+               WHERE user_id=%s AND client_id=%s AND revoked_at IS NULL""",
+            (user["id"], payload.client_id),
+        )
+    return {"revoked": result.rowcount}
