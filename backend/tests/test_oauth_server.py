@@ -13,7 +13,7 @@ def test_authorize_needs_login():
 
 def test_token_bad_grant():
     client=TestClient(app,base_url="http://localhost")
-    assert client.post("/oauth/token",json={"grant_type":"password","code":"x","client_id":"x","redirect_uri":"https://example.org/callback","code_verifier":"a"*43}).status_code==400
+    assert client.post("/oauth/token",data={"grant_type":"password","code":"x","client_id":"x","redirect_uri":"https://example.org/callback","code_verifier":"a"*43}).status_code==400
 
 
 def test_token_empty_code_rejected():
@@ -42,3 +42,29 @@ def test_authorize_requires_explicit_consent_even_with_session(monkeypatch):
         assert client.post("/oauth/authorize",json=payload).status_code==400
     finally:
         app.dependency_overrides.clear()
+
+
+def test_token_rejects_json():
+    client=TestClient(app,base_url="http://localhost")
+    assert client.post("/oauth/token",json={"grant_type":"authorization_code"}).status_code==415
+
+
+def test_token_rejects_duplicate_form_fields():
+    client=TestClient(app,base_url="http://localhost")
+    assert client.post("/oauth/token",content="grant_type=authorization_code&grant_type=password",headers={"content-type":"application/x-www-form-urlencoded"}).status_code==400
+
+
+def test_discovery_disabled_without_issuer(monkeypatch):
+    monkeypatch.delenv("NEXUS_OAUTH_ISSUER",raising=False)
+    client=TestClient(app,base_url="http://localhost")
+    assert client.get("/.well-known/oauth-authorization-server").status_code==404
+    assert client.get("/.well-known/oauth-protected-resource").status_code==404
+
+
+def test_discovery_issuer_metadata(monkeypatch):
+    monkeypatch.setenv("NEXUS_OAUTH_ISSUER","https://nexus.example.org")
+    client=TestClient(app,base_url="http://localhost")
+    response=client.get("/.well-known/oauth-authorization-server")
+    assert response.status_code==200
+    assert response.json()["code_challenge_methods_supported"]==["S256"]
+    assert response.json()["token_endpoint"]=="https://nexus.example.org/oauth/token"
