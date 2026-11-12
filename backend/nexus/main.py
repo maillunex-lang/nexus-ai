@@ -11,6 +11,8 @@ from .security import MCPBearerGuard
 from .identity import LoginRequest, ChangePasswordRequest, change_own_password, login, logout, current_user
 from .permissions import require_role
 from .mission import overview as mission_overview
+from .mission_workflow import ProjectCreate,TaskCreate,TaskUpdate,create_project,list_projects,create_task,list_tasks,update_task,director_plan
+from uuid import UUID
 from .agents import list_agents
 from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
@@ -58,6 +60,30 @@ def auth_logout(request: Request, response: Response):
 @app.post("/api/auth/change-password")
 def auth_change_password(payload: ChangePasswordRequest, request: Request, response: Response):
     return change_own_password(payload, request, response)
+
+@app.get("/api/mission/projects")
+def mission_projects(request: Request):
+    return list_projects(request)
+
+@app.post("/api/mission/projects", status_code=201)
+def mission_project_create(payload: ProjectCreate, request: Request):
+    return create_project(payload,request)
+
+@app.get("/api/mission/projects/{project_id}/tasks")
+def mission_project_tasks(project_id: UUID, request: Request):
+    return list_tasks(project_id,request)
+
+@app.post("/api/mission/tasks", status_code=201)
+def mission_task_create(payload: TaskCreate, request: Request):
+    return create_task(payload,request)
+
+@app.patch("/api/mission/tasks/{task_id}")
+def mission_task_update(task_id: UUID, payload: TaskUpdate, request: Request):
+    return update_task(task_id,payload,request)
+
+@app.get("/api/mission/tasks/{task_id}/director-plan")
+def mission_task_director_plan(task_id: UUID, request: Request):
+    return director_plan(task_id,request)
 
 @app.get("/api/agents")
 def agents_catalog(request: Request):
