@@ -14,6 +14,7 @@ from .mission import overview as mission_overview
 from .mission_workflow import ProjectCreate,TaskCreate,TaskUpdate,create_project,list_projects,create_task,list_tasks,update_task,director_plan
 from uuid import UUID
 from .director_approvals import Review,propose,list_proposals,review_proposal
+from .director_queue import enqueue,list_jobs,cancel
 from .agents import list_agents
 from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
@@ -97,6 +98,18 @@ def director_proposal_list(project_id: UUID, request: Request):
 @app.post("/api/mission/proposals/{proposal_id}/review")
 def director_proposal_review(proposal_id: UUID, payload: Review, request: Request):
     return review_proposal(proposal_id,payload,request)
+
+@app.post("/api/mission/proposals/{proposal_id}/enqueue", status_code=202)
+def director_job_enqueue(proposal_id: UUID, request: Request):
+    return enqueue(proposal_id,request)
+
+@app.get("/api/mission/projects/{project_id}/jobs")
+def director_jobs_list(project_id: UUID, request: Request):
+    return list_jobs(project_id,request)
+
+@app.post("/api/mission/jobs/{job_id}/cancel")
+def director_job_cancel(job_id: UUID, request: Request):
+    return cancel(job_id,request)
 
 @app.get("/api/agents")
 def agents_catalog(request: Request):
