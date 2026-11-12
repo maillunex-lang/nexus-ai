@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
