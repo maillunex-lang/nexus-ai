@@ -10,6 +10,7 @@ from .db import database_ok
 from .security import MCPBearerGuard
 from .identity import LoginRequest, ChangePasswordRequest, change_own_password, login, logout, current_user
 from .permissions import require_role
+from .mission import overview as mission_overview
 from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
 @asynccontextmanager
@@ -39,7 +40,7 @@ def health():
 
 @app.get("/api/status")
 def status():
-    return {"service": "nexus-ai", "version": "0.1.4-dev", "database": "connected" if database_ok() else "unavailable", "mcp": "protected", "security": "internal-token-only"}
+    return {"service": "nexus-ai", "version": "0.1.6-dev", "database": "connected" if database_ok() else "unavailable", "mcp": "protected", "security": "oauth-pkce" if os.environ.get("NEXUS_OAUTH_ISSUER") else "internal-only"}
 
 @app.post("/api/auth/login")
 def auth_login(payload: LoginRequest, response: Response):
@@ -56,6 +57,10 @@ def auth_logout(request: Request, response: Response):
 @app.post("/api/auth/change-password")
 def auth_change_password(payload: ChangePasswordRequest, request: Request, response: Response):
     return change_own_password(payload, request, response)
+
+@app.get("/api/mission/overview")
+def mission_control(request: Request):
+    return mission_overview(request)
 
 @app.get("/api/operator/overview")
 def operator_overview(user: dict = Depends(require_role("owner", "operator", "viewer"))):
