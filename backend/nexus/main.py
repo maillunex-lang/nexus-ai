@@ -26,7 +26,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Browsers sending cross-site form requests must not mutate sessions.
         fetch_site = request.headers.get("sec-fetch-site", "")
         if fetch_site == "cross-site":
