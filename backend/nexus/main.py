@@ -28,7 +28,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path.startswith("/api/director/requests/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Browsers sending cross-site form requests must not mutate sessions.
         fetch_site = request.headers.get("sec-fetch-site", "")
         if fetch_site == "cross-site":
@@ -300,3 +300,21 @@ def dashboard_build_status(job_id: str, request: Request):
 @app.post("/api/dashboard/builds/jobs/{job_id}/download")
 def dashboard_build_link(job_id: str, request: Request):
     return dashboard_build.link(request, job_id)
+
+# Owner-reviewed MCP proposals; read OAuth tokens cannot execute these actions.
+from . import director_requests as approval_requests
+
+@app.get("/api/director/requests")
+def director_request_list(request: Request):
+    return approval_requests.list_pending(request)
+
+@app.get("/api/director/requests/{request_id}")
+def director_request_detail(request_id: str, request: Request):
+    return approval_requests.get(request_id,request)
+
+class DirectorApprovalDecision(BaseModel):
+    decision: Literal["approved","denied"]
+
+@app.post("/api/director/requests/{request_id}/review")
+def director_request_review(request_id: str, payload: DirectorApprovalDecision, request: Request):
+    return approval_requests.review(request_id,payload.decision,request)
