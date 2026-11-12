@@ -10,7 +10,7 @@ Endpoints:
 The worker is deliberately **not scheduled**. An operator may run a single offline, deterministic processing pass using:
 `docker compose exec -T api python -m nexus.director_worker`
 
-This processor reads approved plans and writes a template review result. It does **not** call an AI model, execute shell commands, modify repositories, access Docker, or contact third-party services. A queued job is not automatically processed. If a process crashes while running, it remains in running state; recovery/retries need to be designed and tested before enabling a background worker.
+This processor reads approved plans and writes a template review result. It does **not** call an AI model, execute shell commands, modify repositories, access Docker, or contact third-party services. A queued job is not automatically processed. On each manually triggered run, expired leases are recovered: up to three attempts total, then failed. Every transition is recorded in director_job_events. Plans are SHA-256 checked against their approved canonical representation before processing. This is not yet an automatically scheduled background service.
 
 Database migration: `db/007_director_queue.sql`; backup PostgreSQL first. New tables are additive. No changes to unrelated Compose projects.
 
