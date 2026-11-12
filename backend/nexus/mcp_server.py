@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -378,3 +378,12 @@ def nexus_meshy_refine_status(request_id: str) -> dict:
     if row[2]:
         result["provider"]=task_status(row[2])
     return result
+
+@mcp.tool()
+def nexus_godot_change_preview(project_id: str, relative_path: str, expected_sha256: str, proposed_content: str) -> dict:
+    """Preview a proposed Godot scene/script/shader/resource change without writing to the game.
+
+    Exact SHA-256 guards against stale source. Returns bounded diff and static findings.
+    """
+    from .godot_change_preview import preview
+    return preview(project_id,relative_path,expected_sha256,proposed_content)
