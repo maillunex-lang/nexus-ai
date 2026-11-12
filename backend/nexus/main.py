@@ -140,6 +140,18 @@ def meshy_requests(request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
     return list_meshy_requests(request)
 
+from .meshy_dispatch import dispatch as dispatch_meshy_preview, inspect as inspect_meshy_dispatch
+
+@app.post("/api/meshy/requests/{request_id}/dispatch")
+def meshy_dispatch_preview(request_id: UUID, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return dispatch_meshy_preview(request_id,request)
+
+@app.get("/api/meshy/requests/{request_id}/status")
+def meshy_dispatch_status(request_id: UUID, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return inspect_meshy_dispatch(request_id,request)
+
 @app.get("/api/meshy/balance")
 def meshy_owner_balance(response: Response, user: dict = Depends(require_role("owner"))):
     """Owner-only Meshy API balance. Never exposed via generic MCP read scope."""
