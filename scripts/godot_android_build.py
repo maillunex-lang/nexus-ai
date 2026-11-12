@@ -89,6 +89,8 @@ def build(job_id,timeout=240):
              "--ro-bind","/opt/game-tools","/opt/game-tools",
              "--ro-bind","/opt/android-sdk","/opt/android-sdk",
              "--ro-bind","/usr/lib/jvm","/usr/lib/jvm",
+             "--dir","/etc","--ro-bind","/etc/java-17-openjdk","/etc/java-17-openjdk",
+             "--ro-bind","/etc/ssl/certs","/etc/ssl/certs",
              "--bind",str(workspace),"/workspace",
              "--tmpfs","/tmp","--dir","/home","--bind",str(home),"/home/nexus",
              "--ro-bind",str(templates),"/home/nexus/.local/share/godot/export_templates",
