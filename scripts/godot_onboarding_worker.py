@@ -58,7 +58,24 @@ def process(file):
             raise ValueError("project_id_already_registered")
         stage=Path(tempfile.mkdtemp(prefix="onboard-",dir=ROOT))
         source=data["source"]
-        if data["source_type"]=="lunex":
+        if data["source_type"]=="template":
+            if not isinstance(source,str) or not 1<=len(source)<=70 or any(ord(c)<32 or c in '\\\\/<>"' for c in source):
+                raise ValueError("invalid_project_title")
+            folder=stage/"source"
+            folder.mkdir()
+            title=source.replace('"',"'")
+            (folder/"project.godot").write_text(
+                'config_version=5\\n\\n[application]\\nconfig/name="'+title+
+                '"\\nrun/main_scene="res://scenes/main.tscn"\\n\\n[rendering]\\nrenderer/rendering_method="gl_compatibility"\\n'
+            )
+            (folder/"scenes").mkdir()
+            (folder/"scripts").mkdir()
+            (folder/"scenes"/"main.tscn").write_text(
+                '[gd_scene load_steps=2 format=3]\\n\\n[ext_resource type="Script" path="res://scripts/main.gd" id="1"]\\n\\n[node name="Main" type="Node2D"]\\nscript = ExtResource("1")\\n'
+            )
+            (folder/"scripts"/"main.gd").write_text('extends Node2D\\n\\nfunc _ready() -> void:\\n\\tpass\\n')
+            metadata=check_tree(folder)
+        elif data["source_type"]=="lunex":
             if not isinstance(source,str) or ".." in Path(source).parts:
                 raise ValueError("invalid_source")
             path=Path(source)
