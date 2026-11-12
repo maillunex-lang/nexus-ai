@@ -41,7 +41,9 @@ def request(project_id:str,source_type:str,source:str)->dict:
         json.dump({"job_id":job,"project_id":project_id,"source_type":source_type,
                    "source":source,"requested_by":str(user["user_id"])},handle)
     return {"job_id":job,"state":"queued","build_enabled":False,
-            "note":"Public GitHub repositories only in this version. New projects are inspected but not automatically build-enabled."}
+            "note":("Godot starter template queued; inspection-only until separately authorized."
+                    if source_type=="template" else
+                    "Public GitHub repositories only in this version. New projects are inspected but not automatically build-enabled.")}
 
 def status(job_id:str)->dict:
     user=require_owner()
