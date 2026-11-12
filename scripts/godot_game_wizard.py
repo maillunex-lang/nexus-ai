@@ -74,6 +74,19 @@ def generate(folder,config):
     if "inventory" in config["systems"]:
         script+=['func add_item(item_id: String, count: int = 1) -> void:',
                  '\tif count > 0:','\t\tinventory[item_id] = int(inventory.get(item_id, 0)) + count','']
+    if "movement" in config["systems"]:
+        script+=['var move_speed: float = 200.0','']
+        script+=['func _physics_process(delta: float) -> void:',
+                 '\\tvar direction := Vector2.ZERO',
+                 '\\tif Input.is_action_pressed("ui_left"): direction.x -= 1.0',
+                 '\\tif Input.is_action_pressed("ui_right"): direction.x += 1.0',
+                 '\\tif Input.is_action_pressed("ui_up"): direction.y -= 1.0',
+                 '\\tif Input.is_action_pressed("ui_down"): direction.y += 1.0']
+        if three:
+            script+=['\\t$Player.position += Vector3(direction.x, 0.0, direction.y).normalized() * move_speed * delta']
+        else:
+            script+=['\\t$Player.position += direction.normalized() * move_speed * delta']
+        script+=['']
     (root/"scripts"/"main.gd").write_text("\n".join(script))
     (root/"wizard.json").write_text(json.dumps(config,ensure_ascii=False,indent=2))
     return {"dimension":dimension,"genre":config["genre"],"platforms":config["platforms"],
