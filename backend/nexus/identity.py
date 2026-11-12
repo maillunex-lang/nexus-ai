@@ -48,28 +48,26 @@ def login(payload: LoginRequest, response: Response) -> dict:
     if not USERNAME.fullmatch(username):
         raise HTTPException(401, "Invalid credentials")
     with connection() as conn:
-        with conn.transaction():
-            recent = conn.execute(
-                "SELECT count(*) FROM login_attempts WHERE username=%s AND occurred_at > now()-interval '15 minutes' AND NOT succeeded",
-                (username,),
-            ).fetchone()[0]
-            if recent >= 5:
-                raise HTTPException(429, "Too many attempts")
-            row = conn.execute(
-                "SELECT id,password_hash FROM users WHERE username=%s AND disabled_at IS NULL",
-                (username,),
-            ).fetchone()
-            valid = bool(row and row[1] and verify_password(payload.password, row[1]))
-            conn.execute("INSERT INTO login_attempts(username,succeeded) VALUES (%s,%s)", (username,valid))
-            if not valid:
-                # Committed failed attempts are needed for rate limiting.
-                conn.commit()
-                raise HTTPException(401, "Invalid credentials")
-            token = secrets.token_urlsafe(48)
-            conn.execute(
-                "INSERT INTO user_sessions(user_id,token_hash,expires_at) VALUES (%s,%s,now()+interval '12 hours')",
-                (row[0],token_digest(token)),
-            )
+        recent = conn.execute(
+            "SELECT count(*) FROM login_attempts WHERE username=%s AND occurred_at > now()-interval '15 minutes' AND NOT succeeded",
+            (username,),
+        ).fetchone()[0]
+        if recent >= 5:
+            raise HTTPException(429, "Too many attempts")
+        row = conn.execute(
+            "SELECT id,password_hash FROM users WHERE username=%s AND disabled_at IS NULL",
+            (username,),
+        ).fetchone()
+        valid = bool(row and row[1] and verify_password(payload.password, row[1]))
+        conn.execute("INSERT INTO login_attempts(username,succeeded) VALUES (%s,%s)", (username,valid))
+        if not valid:
+            conn.commit()
+            raise HTTPException(401, "Invalid credentials")
+        token = secrets.token_urlsafe(48)
+        conn.execute(
+            "INSERT INTO user_sessions(user_id,token_hash,expires_at) VALUES (%s,%s,now()+interval '12 hours')",
+            (row[0],token_digest(token)),
+        )
     response.set_cookie(COOKIE_NAME, token, httponly=True, secure=True, samesite="strict", max_age=43200, path="/api/auth")
     response.headers["Cache-Control"] = "no-store"
     return {"username": username}
