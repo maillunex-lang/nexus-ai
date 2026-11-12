@@ -18,7 +18,7 @@ def test_token_bad_grant():
 
 def test_token_empty_code_rejected():
     client=TestClient(app,base_url="http://localhost")
-    assert client.post("/oauth/token",json={"grant_type":"authorization_code","code":"","client_id":"unknown","redirect_uri":"https://example.org/callback","code_verifier":"a"*43}).status_code==400
+    assert client.post("/oauth/token",data={"grant_type":"authorization_code","code":"","client_id":"unknown","redirect_uri":"https://example.org/callback","code_verifier":"a"*43}).status_code==400
 
 
 def test_revoke_requires_login():
