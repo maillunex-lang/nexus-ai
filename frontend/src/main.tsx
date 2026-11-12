@@ -45,7 +45,6 @@ function App(){
  const [approvalBusy,setApprovalBusy]=useState(false);
  const loadApproval=async()=>{if(!approvalId)return;try{const r=await fetch('/nexusai/api/director/requests/'+encodeURIComponent(approvalId),{credentials:'same-origin'});if(!r.ok)throw Error('Заявка недоступна (HTTP '+r.status+')');setApproval(await r.json());setApprovalError('')}catch(e){setApprovalError(String(e))}};
  const reviewApproval=async(decision:'approved'|'denied')=>{setApprovalBusy(true);setApprovalError('');try{const r=await fetch('/nexusai/api/director/requests/'+encodeURIComponent(approvalId)+'/review',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});if(!r.ok)throw Error('Ошибка подтверждения HTTP '+r.status);setApproval(await r.json())}catch(e){setApprovalError(String(e))}finally{setApprovalBusy(false)}};
- useEffect(()=>{if(user&&approvalId)loadApproval()},[user,approvalId]);
  const [buildProjects,setBuildProjects]=useState<{id:string;name:string;available:boolean}[]>([]);
  const [buildProject,setBuildProject]=useState('watermmo');
  const [buildJob,setBuildJob]=useState('');
@@ -64,6 +63,7 @@ function App(){
  const loadMission=async()=>{try{const r=await fetch('/nexusai/api/mission/overview',{credentials:'same-origin'});if(!r.ok)throw Error('Данные Mission Control недоступны');setMission(await r.json());setMissionError('')}catch(e){setMissionError(String(e))}};
  const [status,setStatus]=useState<Status|null>(null);
  const [user,setUser]=useState<User|null>(null);
+ useEffect(()=>{if(user&&approvalId)loadApproval()},[user,approvalId]);
  useEffect(()=>{if(user){loadBuildProjects();loadMission();loadProjects()}else{setMission(null);setProjects([]);setTasks([])}},[user]);
  useEffect(()=>{if(user){loadTasks(selectedProject);loadProposals(selectedProject);loadJobs(selectedProject)}},[selectedProject]);
 
