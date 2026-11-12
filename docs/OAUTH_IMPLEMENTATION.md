@@ -1,6 +1,6 @@
 # OAuth 2.1 implementation gate
 
-**Current status:** PKCE S256 helpers and dormant database schema only. There is **no OAuth authorization server** and **no ChatGPT connection**. The existing internal MCP token is not a user-facing OAuth credential.
+**Current status:** limited local OAuth authorization-code handlers, PKCE S256 validation, pre-registered client lookup, explicit consent flag, consent-preview JSON, hashed access tokens and user-initiated client-token revocation. These are **not yet a production-ready OAuth authorization server** and there is **no ChatGPT connection**. The internal MCP token is not a user-facing OAuth credential. Missing: browser consent page, standards-compliant form-encoded token endpoint, OAuth discovery, public HTTPS issuer, integration and threat-model tests.
 
 ## Required before enabling public access
 
