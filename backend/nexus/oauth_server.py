@@ -41,10 +41,12 @@ def authorize(payload: AuthorizeRequest, request: Request) -> dict:
         raise HTTPException(400, "Explicit consent required")
     if payload.response_type != "code" or payload.code_challenge_method != "S256":
         raise HTTPException(400, "Unsupported OAuth flow")
-    if not CHALLENGE_PATTERN.fullmatch(payload.code_challenge) or payload.scope != "mcp:read":
+    if not CHALLENGE_PATTERN.fullmatch(payload.code_challenge) or payload.scope not in ("mcp:read", "mcp:write"):
         raise HTTPException(400, "Invalid PKCE challenge or scope")
     if not validate_redirect_uri(payload.redirect_uri):
         raise HTTPException(400, "Invalid redirect URI")
+    if payload.scope == "mcp:write" and "owner" not in user["roles"]:
+        raise HTTPException(403, "Owner role required for write scope")
     with connection() as conn:
         client = conn.execute(
             "SELECT redirect_uris FROM oauth_clients WHERE client_id=%s AND disabled_at IS NULL",
@@ -85,6 +87,10 @@ def exchange(payload: TokenRequest) -> dict:
             ).fetchone()
             if not client:
                 raise HTTPException(400, "Client disabled")
+            if row[4] == "mcp:write":
+                permitted = conn.execute("SELECT 1 FROM user_roles ur JOIN users u ON u.id=ur.user_id WHERE ur.user_id=%s AND ur.role_id='owner' AND u.disabled_at IS NULL",(row[1],)).fetchone()
+                if not permitted:
+                    raise HTTPException(403, "Owner role required")
             conn.execute("UPDATE oauth_authorization_codes SET consumed_at=now() WHERE code_hash=%s", (token_digest(payload.code),))
             token = secrets.token_urlsafe(48)
             conn.execute(
@@ -105,7 +111,7 @@ def oauth_token_identity(token: str) -> bool:
                JOIN oauth_clients c ON c.client_id=t.client_id
                JOIN user_roles ur ON ur.user_id=u.id
                WHERE t.token_hash=%s AND t.revoked_at IS NULL AND t.expires_at>now()
-               AND t.audience=%s AND t.scope='mcp:read'
+               AND t.audience=%s AND t.scope IN ('mcp:read','mcp:write')
                AND u.disabled_at IS NULL AND c.disabled_at IS NULL
                AND ur.role_id IN ('owner','operator','viewer') LIMIT 1""",
             (token_digest(token),RESOURCE),
