@@ -152,6 +152,14 @@ def meshy_dispatch_status(request_id: UUID, request: Request, response: Response
     response.headers["Cache-Control"] = "no-store"
     return inspect_meshy_dispatch(request_id,request)
 
+from .meshy_assets import glb_link as meshy_glb_link
+
+@app.get("/api/meshy/requests/{request_id}/glb")
+def meshy_request_glb(request_id: UUID, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return meshy_glb_link(request_id,request)
+
 @app.get("/api/meshy/balance")
 def meshy_owner_balance(response: Response, user: dict = Depends(require_role("owner"))):
     """Owner-only Meshy API balance. Never exposed via generic MCP read scope."""
