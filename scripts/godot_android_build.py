@@ -47,6 +47,11 @@ def build(job_id,timeout=240):
     out=workspace/"nexus-build"
     out.mkdir(exist_ok=True)
     apk=out/"android-debug.apk"
+    home=out/"home"
+    (home/".local/share/godot/export_templates").mkdir(parents=True,exist_ok=True)
+    (home/".config/godot").mkdir(parents=True,exist_ok=True)
+    (home/".cache").mkdir(exist_ok=True)
+    (home/".config/godot/editor_settings-4.7.tres").write_text('[gd_resource type="EditorSettings" format=3]\\n[resource]\\nexport/android/android_sdk_path = "/opt/android-sdk"\\nexport/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"\\n')
     if apk.exists():
         raise ValueError("artifact_already_exists")
     # Bind only the validated workspace, SDK and export templates. Never bind
@@ -57,11 +62,9 @@ def build(job_id,timeout=240):
              "--ro-bind","/lib64","/lib64","--ro-bind","/bin","/bin",
              "--ro-bind","/opt/game-tools","/opt/game-tools",
              "--ro-bind","/opt/android-sdk","/opt/android-sdk",
-             "--ro-bind",str(templates),"/templates",
+             "--ro-bind",str(templates),"/home/nexus/.local/share/godot/export_templates",
              "--bind",str(workspace),"/workspace",
-             "--tmpfs","/tmp","--dir","/home","--dir","/home/nexus",
-             "--dir","/home/nexus/.local","--dir","/home/nexus/.local/share",
-             "--symlink","/templates","/home/nexus/.local/share/godot",
+             "--tmpfs","/tmp","--dir","/home","--bind",str(home),"/home/nexus",
              "--proc","/proc","--dev","/dev","--chdir","/workspace",
              str(executable),"--headless","--path","/workspace",
              "--export-debug","Android","/workspace/nexus-build/android-debug.apk"]
