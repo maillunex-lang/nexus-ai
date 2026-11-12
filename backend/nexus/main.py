@@ -77,7 +77,7 @@ def oauth_revoke(payload: RevokeRequest, request: Request):
 def oauth_authorize_browser(request: Request):
     # The browser opens a same-origin SPA consent screen; no approval on GET.
     from urllib.parse import urlencode
-    return RedirectResponse("/?" + urlencode([("oauth", "1"), *request.query_params.multi_items()]), status_code=303)
+    return RedirectResponse("/nexusai/?" + urlencode([("oauth", "1"), *request.query_params.multi_items()]), status_code=303)
 
 @app.post("/oauth/authorize")
 def oauth_authorize(payload: AuthorizeRequest, request: Request):
