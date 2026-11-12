@@ -14,8 +14,8 @@ from .mcp_principal import require_owner_write
 
 def start(project_id:str)->dict:
     owner=require_owner_write()
-    if not isinstance(project_id,str) or project_id not in PROJECTS or project_id!="basheco":
-        return {"error":"unknown_or_unconfigured_project","available_projects":["basheco"]}
+    if not isinstance(project_id,str) or project_id not in PROJECTS:
+        return {"error":"unknown_or_unconfigured_project","available_projects":sorted(PROJECTS)}
     try:
         _root(project_id)
     except ValueError:
