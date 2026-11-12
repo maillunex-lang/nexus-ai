@@ -459,3 +459,9 @@ def nexus_godot_registration_status(job_id: str) -> dict:
     """Read your Godot project registration job result."""
     from .godot_project_onboarding import status
     return status(job_id)
+
+@mcp.tool()
+def nexus_godot_registered_projects() -> dict:
+    """List your newly imported inspection-only Godot projects."""
+    from .godot_project_onboarding import list_registered
+    return list_registered()
