@@ -68,7 +68,7 @@ def login(payload: LoginRequest, response: Response) -> dict:
             "INSERT INTO user_sessions(user_id,token_hash,expires_at) VALUES (%s,%s,now()+interval '12 hours')",
             (row[0],token_digest(token)),
         )
-    response.set_cookie(COOKIE_NAME, token, httponly=True, secure=True, samesite="strict", max_age=43200, path="/api/auth")
+    response.set_cookie(COOKIE_NAME, token, httponly=True, secure=True, samesite="strict", max_age=43200, path="/")
     response.headers["Cache-Control"] = "no-store"
     return {"username": username}
 
@@ -96,6 +96,6 @@ def logout(request: Request, response: Response) -> dict:
     if token:
         with connection() as conn:
             conn.execute("UPDATE user_sessions SET revoked_at=now() WHERE token_hash=%s AND revoked_at IS NULL", (token_digest(token),))
-    response.delete_cookie(COOKIE_NAME, path="/api/auth", secure=True, httponly=True, samesite="strict")
+    response.delete_cookie(COOKIE_NAME, path="/", secure=True, httponly=True, samesite="strict")
     response.headers["Cache-Control"] = "no-store"
     return {"ok":True}
