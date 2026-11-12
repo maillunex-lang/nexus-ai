@@ -1,6 +1,7 @@
 """Director proposals: human approval workflow only, no execution."""
 import hashlib
 import json
+from datetime import datetime, timezone
 from uuid import UUID
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
@@ -59,7 +60,7 @@ def review_proposal(proposal_id: UUID, payload: Review, request: Request) -> dic
             if not row:
                 raise HTTPException(404,"Proposal not found")
             project_access(conn,user,row[0],True)
-            if row[1]!="pending" or row[2].timestamp()<=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).timestamp():
+            if row[1]!="pending" or row[2]<=datetime.now(timezone.utc):
                 raise HTTPException(409,"Proposal already resolved or expired")
             if str(row[3])==str(user["id"]):
                 raise HTTPException(403,"Creator cannot approve own proposal")
