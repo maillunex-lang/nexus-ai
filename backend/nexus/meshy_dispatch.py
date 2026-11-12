@@ -3,6 +3,7 @@
 Never retries an uncertain POST. Refine is a separate paid operation, not implemented here.
 """
 import json
+import os
 from urllib.request import Request, build_opener
 from urllib.error import HTTPError, URLError
 from uuid import UUID
@@ -17,6 +18,8 @@ ENDPOINT = "https://api.meshy.ai/openapi/v2/text-to-3d"
 
 def dispatch(request_id: UUID, request: FastRequest):
     user = owner(request)
+    if os.environ.get("NEXUS_MESHY_VERIFIED_PREVIEW_COST") != str(PREVIEW_COST):
+        raise HTTPException(503, "Paid Preview disabled until provider pricing is independently verified")
     # Check API credit balance before reserving the request. This is advisory;
     # an account may be used elsewhere concurrently.
     current = balance()
