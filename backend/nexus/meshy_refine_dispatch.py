@@ -20,8 +20,8 @@ REFINE_COST=10
 ENDPOINT="https://api.meshy.ai/openapi/v2/text-to-3d"
 TASK_ID=re.compile(r"[a-zA-Z0-9-]{8,100}\Z")
 
-def dispatch(request_id:UUID, request):
-    user=owner(request)
+def dispatch(request_id:UUID, request, *, owner_id: str | None = None):
+    user={"id":owner_id} if owner_id is not None else owner(request)
     if os.environ.get("NEXUS_MESHY_VERIFIED_REFINE_COST")!=str(REFINE_COST):
         raise HTTPException(503,"Refine disabled until operator verifies pricing")
     key=_key()
