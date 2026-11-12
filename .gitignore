@@ -12,3 +12,6 @@ secrets/
 
 # Isolated Godot validation workspaces (never commit game assets)
 godot-workspaces/
+
+# Godot queued jobs contain user-supplied source and are never committed
+godot-queue/
