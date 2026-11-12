@@ -2,7 +2,9 @@ import importlib.util
 from pathlib import Path
 import pytest
 
-SCRIPT=Path(__file__).resolve().parents[2]/"scripts"/"run_godot_glb_pipeline.py"
+SCRIPT=Path("/scripts/run_godot_glb_pipeline.py")
+if not SCRIPT.is_file():
+    SCRIPT=Path(__file__).resolve().parents[2]/"scripts"/"run_godot_glb_pipeline.py"
 
 def load():
     spec=importlib.util.spec_from_file_location("offline_glb_pipeline",SCRIPT)
