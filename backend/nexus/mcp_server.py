@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -143,3 +143,32 @@ def nexus_meshy_request_status(request_id: str) -> dict:
     if row[2]:
         result["provider"] = task_status(row[2])
     return result
+
+@mcp.tool()
+def nexus_meshy_prepare_request(prompt: str, max_credits: int = 20, art_style: str = "realistic") -> dict:
+    """Prepare a Meshy request for the authenticated owner. NEVER charges credits.
+
+    Requires a separate explicit approval in the NEXUS AI dashboard.
+    """
+    from psycopg.types.json import Jsonb
+    from .mcp_principal import require_owner
+    from .db import connection
+    from .meshy_proposals import preview_text_to_3d
+    principal = require_owner()
+    if type(max_credits) is not int or not 1 <= max_credits <= 1000:
+        return {"error":"invalid_credit_ceiling"}
+    preview = preview_text_to_3d(prompt, art_style, "preview")
+    if "error" in preview:
+        return preview
+    with connection() as conn:
+        row = conn.execute("""INSERT INTO meshy_requests
+          (created_by,proposal_sha256,proposal,max_credits)
+          VALUES (%s,%s,%s,%s) RETURNING id,expires_at""",
+          (principal["user_id"],preview["proposal_sha256"],
+           Jsonb(preview["proposal"]),max_credits)).fetchone()
+        conn.execute("""INSERT INTO meshy_request_events(request_id,actor_id,action)
+          VALUES (%s,%s,'created')""",(row[0],principal["user_id"]))
+    return {"request_id":str(row[0]),"status":"pending","max_credits":max_credits,
+            "expires_at":row[1].isoformat(),"approval_required":True,
+            "generation_started":False,"credits_spent":0,
+            "next_step":"Approve the exact request in the NEXUS AI dashboard; approval alone does not dispatch."}
