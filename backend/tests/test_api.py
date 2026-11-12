@@ -18,17 +18,19 @@ def test_status(client, monkeypatch):
     r = client.get("/api/status")
     assert r.status_code == 200
     assert r.json()["database"] == "unavailable"
-    assert r.json()["security"] == "development-only"
+    assert r.json()["security"] == "internal-token-only"
 
-def test_mcp_initialize(client):
+def test_mcp_initialize(client, monkeypatch):
+    monkeypatch.setenv("NEXUS_MCP_INTERNAL_TOKEN", "test-only-secret-" + "x"*40)
     payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "nexus-test", "version": "1"}}}
-    r = client.post("/mcp/", json=payload, headers={"Accept": "application/json, text/event-stream"})
+    r = client.post("/mcp/", json=payload, headers={"Accept": "application/json, text/event-stream", "Authorization": "Bearer test-only-secret-" + "x"*40})
     assert r.status_code == 200, r.text
     assert r.json()["result"]["serverInfo"]["name"] == "NEXUS AI"
 
-def test_mcp_tool_catalog(client):
+def test_mcp_tool_catalog(client, monkeypatch):
+    monkeypatch.setenv("NEXUS_MCP_INTERNAL_TOKEN", "test-only-secret-" + "x"*40)
     payload = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
-    r = client.post("/mcp/", json=payload, headers={"Accept": "application/json, text/event-stream"})
+    r = client.post("/mcp/", json=payload, headers={"Accept": "application/json, text/event-stream", "Authorization": "Bearer test-only-secret-" + "x"*40})
     assert r.status_code == 200, r.text
     names = {tool["name"] for tool in r.json()["result"]["tools"]}
     assert {"nexus_status", "nexus_capabilities"} <= names
