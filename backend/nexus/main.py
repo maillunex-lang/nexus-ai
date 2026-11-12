@@ -13,6 +13,7 @@ from .permissions import require_role
 from .mission import overview as mission_overview
 from .mission_workflow import ProjectCreate,TaskCreate,TaskUpdate,create_project,list_projects,create_task,list_tasks,update_task,director_plan
 from uuid import UUID
+from .director_approvals import Review,propose,list_proposals,review_proposal
 from .agents import list_agents
 from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authorize, exchange, consent_preview, revoke_client_tokens
 
@@ -84,6 +85,18 @@ def mission_task_update(task_id: UUID, payload: TaskUpdate, request: Request):
 @app.get("/api/mission/tasks/{task_id}/director-plan")
 def mission_task_director_plan(task_id: UUID, request: Request):
     return director_plan(task_id,request)
+
+@app.post("/api/mission/tasks/{task_id}/proposals", status_code=201)
+def director_proposal_create(task_id: UUID, request: Request):
+    return propose(task_id,request)
+
+@app.get("/api/mission/projects/{project_id}/proposals")
+def director_proposal_list(project_id: UUID, request: Request):
+    return list_proposals(project_id,request)
+
+@app.post("/api/mission/proposals/{proposal_id}/review")
+def director_proposal_review(proposal_id: UUID, payload: Review, request: Request):
+    return review_proposal(proposal_id,payload,request)
 
 @app.get("/api/agents")
 def agents_catalog(request: Request):
