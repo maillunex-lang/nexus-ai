@@ -149,4 +149,5 @@ def inspect_file(project_id,relative_path):
         analysis={"sections":re.findall(r"(?m)^\[([^\]\r\n]{1,150})\]",source)[:120],
                   "lines":len(source.splitlines()),"analysis":"static_structure"}
     return {"project_id":project_id,"path":relative_path,"kind":kind,
+            "source_sha256":__import__("hashlib").sha256(source.encode("utf-8")).hexdigest(),
             "analysis":analysis,"read_only":True,"execution_enabled":False}
