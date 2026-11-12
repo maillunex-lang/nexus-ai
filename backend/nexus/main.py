@@ -5,6 +5,7 @@ from .db import database_ok
 from .security import MCPBearerGuard
 from .identity import LoginRequest, login, logout, current_user
 from .permissions import require_role
+from .oauth_server import AuthorizeRequest, TokenRequest, authorize, exchange
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,7 +17,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if request.url.path.startswith("/api/auth/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path == "/oauth/authorize") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         origin = request.headers.get("origin")
         host = request.headers.get("host", "")
         if origin and origin not in ("http://" + host, "https://" + host):
@@ -50,5 +51,13 @@ def operator_overview(user: dict = Depends(require_role("owner", "operator", "vi
 @app.get("/api/admin/overview")
 def admin_overview(user: dict = Depends(require_role("owner"))):
     return {"username": user["username"], "management_enabled": False}
+
+@app.post("/oauth/authorize")
+def oauth_authorize(payload: AuthorizeRequest, request: Request):
+    return authorize(payload, request)
+
+@app.post("/oauth/token")
+def oauth_token(payload: TokenRequest):
+    return exchange(payload)
 
 app.mount("/mcp", mcp.streamable_http_app())
