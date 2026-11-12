@@ -574,3 +574,16 @@ def nexus_graphics_enhancer_audit(project_id: str, profile: str = "balanced") ->
     """
     from .graphics_enhancer import audit
     return audit(project_id,profile)
+
+@mcp.tool()
+def nexus_android_optimization_audit(project_id: str) -> dict:
+    """Read-only scan of mobile Godot performance risks, without running a device."""
+    from .android_optimizer import inspect
+    return inspect(project_id)
+
+
+@mcp.tool()
+def nexus_android_graphics_presets() -> dict:
+    """List mobile quality presets and actual vs planned features."""
+    from .android_optimizer import presets
+    return presets()
