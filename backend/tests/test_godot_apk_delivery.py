@@ -20,7 +20,7 @@ def fixture_build(tmp_path):
     sha=hashlib.sha256(apk.read_bytes()).hexdigest()
     result={"passed":True,"sha256":sha,"bytes":apk.stat().st_size,"workspace_job_id":WORKSPACE}
     (queue/"build_completed"/(JOB+".json")).write_text(json.dumps({"job_id":JOB,"requested_by":"owner-1","result":result}))
-    return queue,folder.parent.parent,sha,result
+    return queue,folder.parent,sha,result
 
 def test_owner_issues_link_and_download_verifies_hash(tmp_path):
     queue,root,sha,result=fixture_build(tmp_path)
