@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -305,3 +305,76 @@ def nexus_meshy_dispatch_readiness(request_id: str) -> dict:
             "provider_cost_verified":verified,"estimated_cost_credits":PREVIEW_COST,
             "ready":ready,"generation_started":False,"credits_spent":0,
             "note":"This is a dry-run readiness check, never a dispatch."}
+
+@mcp.tool()
+def nexus_meshy_dispatch_preview(request_id: str, confirmation: str) -> dict:
+    """Paid Preview dispatch. Requires owner mcp:write and exact confirmation 'DISPATCH <request_id>'.
+    
+    Charges provider credits only when operator separately enabled verified pricing.
+    No automatic retries. Do not call without user approval of this exact request.
+    """
+    from uuid import UUID
+    from fastapi import HTTPException
+    from .mcp_principal import require_owner_write
+    from .meshy_dispatch import dispatch
+    principal=require_owner_write()
+    try:
+        identifier=UUID(request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_request_id"}
+    if confirmation!="DISPATCH "+str(identifier):
+        return {"error":"explicit_dispatch_confirmation_required",
+                "required_confirmation":"DISPATCH "+str(identifier)}
+    try:
+        return dispatch(identifier,None,owner_id=principal["user_id"])
+    except HTTPException as exc:
+        return {"error":"dispatch_rejected","status_code":exc.status_code,"reason":exc.detail}
+
+
+@mcp.tool()
+def nexus_meshy_dispatch_refine(request_id: str, confirmation: str) -> dict:
+    """Paid Refine dispatch. Owner mcp:write, explicit exact request confirmation, no retries.
+
+    Do not invoke without user's separate approval for this request and 10 credits.
+    """
+    from uuid import UUID
+    from fastapi import HTTPException
+    from .mcp_principal import require_owner_write
+    from .meshy_refine_dispatch import dispatch
+    principal=require_owner_write()
+    try:
+        identifier=UUID(request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_request_id"}
+    if confirmation!="DISPATCH "+str(identifier):
+        return {"error":"explicit_dispatch_confirmation_required",
+                "required_confirmation":"DISPATCH "+str(identifier)}
+    try:
+        return dispatch(identifier,None,owner_id=principal["user_id"])
+    except HTTPException as exc:
+        return {"error":"dispatch_rejected","status_code":exc.status_code,"reason":exc.detail}
+
+
+@mcp.tool()
+def nexus_meshy_refine_status(request_id: str) -> dict:
+    """Read owned Refine dispatch state and sanitized provider task status."""
+    from uuid import UUID
+    from .mcp_principal import require_owner
+    from .db import connection
+    from .meshy_reader import task_status
+    principal=require_owner()
+    try:
+        identifier=UUID(request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_request_id"}
+    with connection() as conn:
+        row=conn.execute("""SELECT status,dispatch_state,provider_task_id,max_credits
+          FROM meshy_refine_requests WHERE id=%s AND created_by=%s""",
+          (identifier,principal["user_id"])).fetchone()
+    if not row:
+        return {"error":"request_not_found"}
+    result={"request_id":str(identifier),"approval_status":row[0],
+            "dispatch_state":row[1],"max_credits":row[3]}
+    if row[2]:
+        result["provider"]=task_status(row[2])
+    return result
