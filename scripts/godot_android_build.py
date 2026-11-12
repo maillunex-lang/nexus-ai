@@ -51,7 +51,25 @@ def build(job_id,timeout=240):
     (home/".local/share/godot/export_templates").mkdir(parents=True,exist_ok=True)
     (home/".config/godot").mkdir(parents=True,exist_ok=True)
     (home/".cache").mkdir(exist_ok=True)
-    (home/".config/godot/editor_settings-4.7.tres").write_text('[gd_resource type="EditorSettings" format=3]\n[resource]\nexport/android/android_sdk_path = "/opt/android-sdk"\nexport/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"\\n')
+    # Generate a disposable debug-only key inside the isolated workspace.
+    key=out/"nexus-debug.keystore"
+    if not key.exists():
+        keytool=shutil.which("keytool")
+        if not keytool:
+            raise ValueError("java_keytool_unavailable")
+        subprocess.run([keytool,"-genkeypair","-noprompt","-keystore",str(key),
+                        "-storepass","android","-alias","androiddebugkey",
+                        "-keypass","android","-dname","CN=Android Debug,O=Android,C=US",
+                        "-keyalg","RSA","-keysize","2048","-validity","365"],
+                       check=True,capture_output=True,timeout=30)
+    (home/".config/godot/editor_settings-4.7.tres").write_text(
+        '[gd_resource type="EditorSettings" format=3]\\n'
+        '[resource]\\n'
+        'export/android/android_sdk_path = "/opt/android-sdk"\\n'
+        'export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"\\n'
+        'export/android/debug_keystore = "/workspace/nexus-build/nexus-debug.keystore"\\n'
+        'export/android/debug_keystore_user = "androiddebugkey"\\n'
+        'export/android/debug_keystore_pass = "android"\\n')
     if apk.exists():
         raise ValueError("artifact_already_exists")
     # Bind only the validated workspace, SDK and export templates. Never bind
