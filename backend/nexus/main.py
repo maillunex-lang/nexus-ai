@@ -263,3 +263,15 @@ def oauth_resource_metadata():
             "scopes_supported": ["mcp:read"], "bearer_methods_supported": ["header"]}
 
 app.mount("/mcp", mcp.streamable_http_app())
+
+from .meshy_refine_dispatch import dispatch as dispatch_refine, inspect as inspect_refine_dispatch
+
+@app.post("/api/meshy/refine/{request_id}/dispatch")
+def meshy_refine_dispatch(request_id: UUID, request: Request, response: Response):
+    response.headers["Cache-Control"]="no-store"
+    return dispatch_refine(request_id,request)
+
+@app.get("/api/meshy/refine/{request_id}/dispatch-status")
+def meshy_refine_dispatch_status(request_id: UUID, request: Request, response: Response):
+    response.headers["Cache-Control"]="no-store"
+    return inspect_refine_dispatch(request_id,request)
