@@ -77,15 +77,15 @@ def generate(folder,config):
     if "movement" in config["systems"]:
         script+=['var move_speed: float = 200.0','']
         script+=['func _physics_process(delta: float) -> void:',
-                 '\\tvar direction := Vector2.ZERO',
-                 '\\tif Input.is_action_pressed("ui_left"): direction.x -= 1.0',
-                 '\\tif Input.is_action_pressed("ui_right"): direction.x += 1.0',
-                 '\\tif Input.is_action_pressed("ui_up"): direction.y -= 1.0',
-                 '\\tif Input.is_action_pressed("ui_down"): direction.y += 1.0']
+                 '\tvar direction := Vector2.ZERO',
+                 '\tif Input.is_action_pressed("ui_left"): direction.x -= 1.0',
+                 '\tif Input.is_action_pressed("ui_right"): direction.x += 1.0',
+                 '\tif Input.is_action_pressed("ui_up"): direction.y -= 1.0',
+                 '\tif Input.is_action_pressed("ui_down"): direction.y += 1.0']
         if three:
-            script+=['\\t$Player.position += Vector3(direction.x, 0.0, direction.y).normalized() * move_speed * delta']
+            script+=['\t$Player.position += Vector3(direction.x, 0.0, direction.y).normalized() * move_speed * delta']
         else:
-            script+=['\\t$Player.position += direction.normalized() * move_speed * delta']
+            script+=['\t$Player.position += direction.normalized() * move_speed * delta']
         script+=['']
     (root/"scripts"/"main.gd").write_text("\n".join(script))
     (root/"wizard.json").write_text(json.dumps(config,ensure_ascii=False,indent=2))
