@@ -80,7 +80,7 @@ def download(build_job_id:str,expires:int,sha256:str,signature:str):
     if not hmac.compare_digest(digest,sha256):
         raise HTTPException(409,"Artifact checksum mismatch")
     return FileResponse(apk,media_type="application/vnd.android.package-archive",
-        filename="BASHECO-debug-"+build_job_id[6:14]+".apk",
+        filename={"basheco":"BASHECO","watermmo":"WaterMMO","agroempire":"AgroEmpire"}.get(result.get("project_id","basheco"),"Godot")+"-debug-"+build_job_id[6:14]+".apk",
         headers={"Cache-Control":"private, no-store, max-age=0",
                  "X-Content-Type-Options":"nosniff",
                  "Referrer-Policy":"no-referrer",
