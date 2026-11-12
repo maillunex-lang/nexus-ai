@@ -7,7 +7,7 @@ type User = {id:string;username:string;roles:string[]};
 type Consent = {client_id:string;client_name:string;redirect_uri:string;scope:string;username:string};
 function App(){
  const params=new URLSearchParams(window.location.search);
- const isOAuth=window.location.pathname==='/oauth/authorize';
+ const isOAuth=params.get('oauth')==='1';
  const [consent,setConsent]=useState<Consent|null>(null);
  const [oauthError,setOauthError]=useState('');
  const [approving,setApproving]=useState(false);
