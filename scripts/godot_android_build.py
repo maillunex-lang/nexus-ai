@@ -62,14 +62,22 @@ def build(job_id,timeout=240):
                         "-keypass","android","-dname","CN=Android Debug,O=Android,C=US",
                         "-keyalg","RSA","-keysize","2048","-validity","365"],
                        check=True,capture_output=True,timeout=30)
-    (home/".config/godot/editor_settings-4.7.tres").write_text(
-        '[gd_resource type="EditorSettings" format=3]\\n'
-        '[resource]\\n'
-        'export/android/android_sdk_path = "/opt/android-sdk"\\n'
-        'export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"\\n'
-        'export/android/debug_keystore = "/workspace/nexus-build/nexus-debug.keystore"\\n'
-        'export/android/debug_keystore_user = "androiddebugkey"\\n'
-        'export/android/debug_keystore_pass = "android"\\n')
+    settings=home/".config/godot/editor_settings-4.7.tres"
+    # Use a Godot-generated EditorSettings file, never an incomplete handcrafted one.
+    if settings.exists():
+        lines=settings.read_text().splitlines()
+        updates={
+            "export/android/android_sdk_path":'"/opt/android-sdk"',
+            "export/android/java_sdk_path":'"/usr/lib/jvm/java-17-openjdk-amd64"',
+            "export/android/debug_keystore":'"/workspace/nexus-build/nexus-debug.keystore"',
+            "export/android/debug_keystore_user":'"androiddebugkey"',
+            "export/android/debug_keystore_pass":'"android"',
+        }
+        for key,value in updates.items():
+            lines=[line for line in lines if not line.startswith(key+" = ")]
+            lines.append(key+" = "+value)
+        settings.write_text("\\n".join(lines)+"\\n")
+
     if apk.exists():
         raise ValueError("artifact_already_exists")
     # Bind only the validated workspace, SDK and export templates. Never bind
