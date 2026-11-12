@@ -18,7 +18,7 @@ def test_status(client, monkeypatch):
     r = client.get("/api/status")
     assert r.status_code == 200
     assert r.json()["database"] == "unavailable"
-    assert r.json()["security"] == "internal-token-only"
+    assert r.json()["security"] == "internal-only"
 
 def test_mcp_initialize(client, monkeypatch):
     monkeypatch.setenv("NEXUS_MCP_INTERNAL_TOKEN", "test-only-secret-" + "x"*40)
