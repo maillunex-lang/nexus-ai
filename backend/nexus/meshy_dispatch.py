@@ -16,8 +16,8 @@ PREVIEW_COST = 20
 ENDPOINT = "https://api.meshy.ai/openapi/v2/text-to-3d"
 
 
-def dispatch(request_id: UUID, request: FastRequest):
-    user = owner(request)
+def dispatch(request_id: UUID, request: FastRequest, *, owner_id: str | None = None):
+    user = {"id": owner_id} if owner_id is not None else owner(request)
     if os.environ.get("NEXUS_MESHY_VERIFIED_PREVIEW_COST") != str(PREVIEW_COST):
         raise HTTPException(503, "Paid Preview disabled until provider pricing is independently verified")
     # Check API credit balance before reserving the request. This is advisory;
