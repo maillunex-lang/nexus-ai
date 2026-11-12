@@ -13,4 +13,19 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow"], "execution_enabled": False}
+
+@mcp.tool()
+def nexus_agents() -> dict:
+    """List the planned NEXUS AI agent roles, without starting any executor."""
+    from .agents import AGENTS
+    return {"agents":[{**a,"status":"planned","execution_enabled":False} for a in AGENTS],
+            "execution_enabled":False}
+
+@mcp.tool()
+def nexus_workflow() -> dict:
+    """Describe Mission Control workflows and safety limits; no private task data."""
+    return {"mission_control":"available via authenticated web dashboard",
+            "operations":["create_project","create_task","assign_agent","change_status","draft_director_plan"],
+            "mcp_mutations_enabled":False,"remote_execution_enabled":False,
+            "note":"MCP write tools require future per-user token authorization and explicit approvals."}
