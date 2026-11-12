@@ -58,7 +58,11 @@ def process(file):
             raise ValueError("project_id_already_registered")
         stage=Path(tempfile.mkdtemp(prefix="onboard-",dir=ROOT))
         source=data["source"]
-        if data["source_type"]=="template":
+        if data["source_type"]=="wizard":
+            from godot_game_wizard import generate
+            generate(stage/"source",json.loads(source))
+            metadata=check_tree(stage/"source")
+        elif data["source_type"]=="template":
             if not isinstance(source,str) or not 1<=len(source)<=70 or any(ord(c)<32 or c in '\\\\/<>"' for c in source):
                 raise ValueError("invalid_project_title")
             folder=stage/"source"
