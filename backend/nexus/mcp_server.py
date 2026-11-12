@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -101,3 +101,9 @@ def nexus_meshy_status() -> dict:
     """Check whether optional Meshy API integration is configured, without exposing private billing or API keys."""
     from .meshy_reader import connection_status
     return connection_status()
+
+@mcp.tool()
+def nexus_meshy_text_to_3d_preview(prompt: str, art_style: str = "realistic", mode: str = "preview") -> dict:
+    """Preview a Meshy text-to-3D request and approval requirements. Does NOT generate a model, use credits, or call Meshy."""
+    from .meshy_proposals import preview_text_to_3d
+    return preview_text_to_3d(prompt, art_style, mode)
