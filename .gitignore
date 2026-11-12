@@ -9,3 +9,6 @@ dist/
 
 # Local API secrets (never commit)
 secrets/
+
+# Isolated Godot validation workspaces (never commit game assets)
+godot-workspaces/
