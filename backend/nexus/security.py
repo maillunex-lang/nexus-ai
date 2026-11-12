@@ -5,6 +5,7 @@ import os
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .oauth_server import oauth_token_identity
+from .mcp_principal import principal_var, resolve
 
 
 def authorized_bearer(authorization: str) -> bool:
@@ -50,4 +51,14 @@ class MCPBearerGuard:
             ]})
             await send({"type": "http.response.body", "body": body})
             return
-        await self.app(scope, receive, send)
+        # ContextVar is reset after each ASGI request to prevent identity leakage.
+        principal = None
+        try:
+            principal = resolve(authorization)
+        except Exception:
+            principal = None
+        token = principal_var.set(principal)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            principal_var.reset(token)
