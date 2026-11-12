@@ -19,7 +19,7 @@ def hash_password(password: str) -> str:
     if len(password) < 14 or len(password) > 1024:
         raise ValueError("Password length must be between 14 and 1024")
     salt = os.urandom(16)
-    derived = hashlib.scrypt(password.encode(), salt=salt, n=2**15, r=8, p=1, dklen=32)
+    derived = hashlib.scrypt(password.encode(), salt=salt, n=2**15, r=8, p=1, dklen=32, maxmem=128*1024*1024)
     return "scrypt$32768$8$1$" + salt.hex() + "$" + derived.hex()
 
 
@@ -28,7 +28,7 @@ def verify_password(password: str, stored: str) -> bool:
         scheme, n, r, p, salt, expected = stored.split("$")
         if scheme != "scrypt" or (int(n), int(r), int(p)) != (32768, 8, 1):
             return False
-        candidate = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32)
+        candidate = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32, maxmem=128*1024*1024)
         return hmac.compare_digest(candidate, bytes.fromhex(expected))
     except (ValueError, TypeError, OverflowError):
         return False
