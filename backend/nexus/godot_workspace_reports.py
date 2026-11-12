@@ -11,8 +11,9 @@ def report(job_id:str)->dict:
     require_owner()
     if not isinstance(job_id,str) or not JOB.fullmatch(job_id):
         return {"error":"invalid_job_id"}
-    file=ROOT/job_id/"nexus_godot_report.json"
-    if file.is_symlink() or not file.is_file() or file.stat().st_size>20_000:
+    folder=ROOT/job_id
+    file=folder/"nexus_godot_report.json"
+    if folder.is_symlink() or file.is_symlink() or not file.is_file() or file.stat().st_size>20_000:
         return {"error":"report_unavailable"}
     try:
         result=json.loads(file.read_text(encoding="utf-8"))
