@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -172,3 +172,42 @@ def nexus_meshy_prepare_request(prompt: str, max_credits: int = 20, art_style: s
             "expires_at":row[1].isoformat(),"approval_required":True,
             "generation_started":False,"credits_spent":0,
             "next_step":"Approve the exact request in the NEXUS AI dashboard; approval alone does not dispatch."}
+
+@mcp.tool()
+def nexus_meshy_prepare_refine(preview_request_id: str, max_credits: int = 10) -> dict:
+    """Create separate non-billable texture approval request for completed owned Preview."""
+    from uuid import UUID
+    from .mcp_principal import require_owner
+    from .db import connection
+    from .meshy_reader import task_status
+    principal=require_owner()
+    try:
+        identifier=UUID(preview_request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_preview_request_id"}
+    if type(max_credits) is not int or not 10 <= max_credits <= 1000:
+        return {"error":"invalid_credit_ceiling"}
+    with connection() as conn:
+        row=conn.execute("""SELECT provider_task_id,dispatch_state FROM meshy_requests
+          WHERE id=%s AND created_by=%s""",(identifier,principal["user_id"])).fetchone()
+    if not row or row[1]!="submitted" or not row[0]:
+        return {"error":"preview_not_submitted_or_not_owned"}
+    if task_status(row[0]).get("task",{}).get("status")!="SUCCEEDED":
+        return {"error":"preview_not_completed"}
+    with connection() as conn:
+        result=conn.execute("""INSERT INTO meshy_refine_requests
+          (preview_request_id,created_by,max_credits) VALUES (%s,%s,%s)
+          ON CONFLICT (preview_request_id) DO NOTHING RETURNING id,expires_at""",
+          (identifier,principal["user_id"],max_credits)).fetchone()
+    if not result:
+        return {"error":"refine_request_already_exists"}
+    return {"request_id":str(result[0]),"status":"pending","expires_at":result[1].isoformat(),
+            "max_credits":max_credits,"generation_started":False,
+            "next_step":"Approve separately in the authenticated NEXUS dashboard."}
+
+
+@mcp.tool()
+def nexus_godot_gltf_mobile_audit(gltf_json: dict) -> dict:
+    """Audit glTF 2.0 JSON metadata for Android suitability, without modifying files."""
+    from .godot_glb_audit import assess_gltf
+    return assess_gltf(gltf_json)
