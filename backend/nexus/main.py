@@ -28,7 +28,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Browsers sending cross-site form requests must not mutate sessions.
         fetch_site = request.headers.get("sec-fetch-site", "")
         if fetch_site == "cross-site":
@@ -122,6 +122,23 @@ def mission_control(request: Request):
 @app.get("/api/operator/overview")
 def operator_overview(user: dict = Depends(require_role("owner", "operator", "viewer"))):
     return {"username": user["username"], "roles": user["roles"], "projects": "not-yet-enabled", "execution_enabled": False}
+
+from .meshy_approvals import MeshyRequest, MeshyReview, create as create_meshy_request, review as review_meshy_request, list_requests as list_meshy_requests
+
+@app.post("/api/meshy/requests", status_code=201)
+def meshy_request_create(payload: MeshyRequest, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return create_meshy_request(payload,request)
+
+@app.post("/api/meshy/requests/{request_id}/review")
+def meshy_request_review(request_id: UUID, payload: MeshyReview, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return review_meshy_request(request_id,payload,request)
+
+@app.get("/api/meshy/requests")
+def meshy_requests(request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return list_meshy_requests(request)
 
 @app.get("/api/meshy/balance")
 def meshy_owner_balance(response: Response, user: dict = Depends(require_role("owner"))):
