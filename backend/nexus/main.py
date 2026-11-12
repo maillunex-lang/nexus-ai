@@ -275,3 +275,9 @@ def meshy_refine_dispatch(request_id: UUID, request: Request, response: Response
 def meshy_refine_dispatch_status(request_id: UUID, request: Request, response: Response):
     response.headers["Cache-Control"]="no-store"
     return inspect_refine_dispatch(request_id,request)
+
+from .godot_apk_delivery import download as download_godot_apk
+
+@app.get("/api/godot/builds/{build_job_id}/apk")
+def godot_apk_download(build_job_id: str, expires: int, sha256: str, signature: str):
+    return download_godot_apk(build_job_id,expires,sha256,signature)
