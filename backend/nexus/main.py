@@ -23,6 +23,10 @@ app.add_middleware(MCPBearerGuard)
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
     if (request.url.path.startswith("/api/auth/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        # Browsers sending cross-site form requests must not mutate sessions.
+        fetch_site = request.headers.get("sec-fetch-site", "")
+        if fetch_site == "cross-site":
+            return Response(status_code=403, content="Cross-site request rejected")
         origin = request.headers.get("origin")
         host = request.headers.get("host", "")
         if origin and origin not in ("http://" + host, "https://" + host):
@@ -94,7 +98,8 @@ async def oauth_token(request: Request):
         payload = TokenRequest.model_validate({key: values[0] for key, values in data.items()})
     except (UnicodeDecodeError, ValueError, ValidationError):
         raise HTTPException(400, "Invalid token request")
-    return exchange(payload)
+    result = exchange(payload)
+    return Response(content=__import__("json").dumps(result), media_type="application/json", headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
 
 
 def configured_issuer() -> str:
