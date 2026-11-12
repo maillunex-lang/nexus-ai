@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -245,3 +245,63 @@ def nexus_meshy_review_request(request_id: str, decision: str) -> dict:
             "max_credits":row[3],"proposal":row[2],
             "generation_started":False,"credits_spent":0,
             "next_step":"Separate explicit dispatch required to incur any credits."}
+
+@mcp.tool()
+def nexus_meshy_review_refine(request_id: str, decision: str) -> dict:
+    """Owner-only write-scope approval for texture Refine. No credits spent."""
+    from uuid import UUID
+    from .mcp_principal import require_owner_write
+    from .db import connection
+    principal=require_owner_write()
+    if decision not in ("approve","reject"):
+        return {"error":"invalid_decision"}
+    try:
+        identifier=UUID(request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_request_id"}
+    with connection() as conn:
+        with conn.transaction():
+            row=conn.execute("""SELECT status,expires_at,max_credits FROM meshy_refine_requests
+              WHERE id=%s AND created_by=%s FOR UPDATE""",
+              (identifier,principal["user_id"])).fetchone()
+            if not row:
+                return {"error":"request_not_found"}
+            if row[0]!="pending" or row[1].timestamp()<=__import__("time").time():
+                return {"error":"already_reviewed_or_expired"}
+            status="approved" if decision=="approve" else "rejected"
+            conn.execute("""UPDATE meshy_refine_requests SET status=%s,
+              approved_at=CASE WHEN %s='approved' THEN now() ELSE NULL END WHERE id=%s""",
+              (status,status,identifier))
+    return {"request_id":str(identifier),"status":status,"max_credits":row[2],
+            "generation_started":False,"credits_spent":0,
+            "dispatch_enabled":False}
+
+
+@mcp.tool()
+def nexus_meshy_dispatch_readiness(request_id: str) -> dict:
+    """Check owner request and billing safeguards. Never sends a paid provider request."""
+    import os
+    from uuid import UUID
+    from .mcp_principal import require_owner
+    from .db import connection
+    from .meshy_dispatch import PREVIEW_COST
+    principal=require_owner()
+    try:
+        identifier=UUID(request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_request_id"}
+    with connection() as conn:
+        row=conn.execute("""SELECT status,dispatch_state,max_credits,expires_at,proposal
+          FROM meshy_requests WHERE id=%s AND created_by=%s""",
+          (identifier,principal["user_id"])).fetchone()
+    if not row:
+        return {"error":"request_not_found"}
+    verified=os.environ.get("NEXUS_MESHY_VERIFIED_PREVIEW_COST")==str(PREVIEW_COST)
+    ready=(row[0]=="approved" and row[1]=="not_started" and
+           row[2]>=PREVIEW_COST and row[3].timestamp()>__import__("time").time()
+           and row[4].get("mode")=="preview" and verified)
+    return {"request_id":str(identifier),"approved":row[0]=="approved",
+            "dispatch_state":row[1],"max_credits":row[2],
+            "provider_cost_verified":verified,"estimated_cost_credits":PREVIEW_COST,
+            "ready":ready,"generation_started":False,"credits_spent":0,
+            "note":"This is a dry-run readiness check, never a dispatch."}
