@@ -57,3 +57,27 @@ def status(job_id:str)->dict:
         return {"job_id":job_id,"state":state.removeprefix("onboard_"),
                 "result":data.get("result")}
     return {"error":"not_found"}
+
+def list_registered()->dict:
+    """List completed inspection-only project registrations owned by caller."""
+    owner=require_owner()
+    directory=QUEUE/"onboard_completed"
+    projects=[]
+    if directory.is_dir():
+        for path in sorted(directory.glob("onboard-*.json"))[:200]:
+            if path.is_symlink() or path.stat().st_size>20000:
+                continue
+            try:
+                item=json.loads(path.read_text())
+            except (OSError,ValueError):
+                continue
+            if item.get("requested_by")!=str(owner["user_id"]):
+                continue
+            result=item.get("result") or {}
+            if result.get("registered"):
+                projects.append({"project_id":result.get("project_id"),
+                                 "files":result.get("files"),
+                                 "bytes":result.get("bytes"),
+                                 "build_enabled":False,
+                                 "inspection_only":True})
+    return {"projects":projects}
