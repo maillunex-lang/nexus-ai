@@ -13,7 +13,7 @@ def nexus_status() -> dict:
 @mcp.tool()
 def nexus_capabilities() -> dict:
     """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit"], "execution_enabled": False}
+    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request"], "execution_enabled": False}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -211,3 +211,37 @@ def nexus_godot_gltf_mobile_audit(gltf_json: dict) -> dict:
     """Audit glTF 2.0 JSON metadata for Android suitability, without modifying files."""
     from .godot_glb_audit import assess_gltf
     return assess_gltf(gltf_json)
+
+@mcp.tool()
+def nexus_meshy_review_request(request_id: str, decision: str) -> dict:
+    """Explicit owner OAuth write approval or rejection. NEVER starts paid generation."""
+    from uuid import UUID
+    from .mcp_principal import require_owner_write
+    from .db import connection
+    principal=require_owner_write()
+    if decision not in ("approve","reject"):
+        return {"error":"invalid_decision"}
+    try:
+        identifier=UUID(request_id)
+    except (ValueError,TypeError,AttributeError):
+        return {"error":"invalid_request_id"}
+    with connection() as conn:
+        with conn.transaction():
+            row=conn.execute("""SELECT status,expires_at,proposal,max_credits FROM meshy_requests
+              WHERE id=%s AND created_by=%s FOR UPDATE""",
+              (identifier,principal["user_id"])).fetchone()
+            if not row:
+                return {"error":"request_not_found"}
+            if row[0]!="pending" or row[1].timestamp()<=__import__("time").time():
+                return {"error":"already_reviewed_or_expired"}
+            status="approved" if decision=="approve" else "rejected"
+            conn.execute("""UPDATE meshy_requests SET status=%s,
+              approved_by=%s,approved_at=CASE WHEN %s='approved' THEN now() ELSE NULL END
+              WHERE id=%s""",(status,principal["user_id"] if status=="approved" else None,
+              status,identifier))
+            conn.execute("""INSERT INTO meshy_request_events(request_id,actor_id,action)
+              VALUES (%s,%s,%s)""",(identifier,principal["user_id"],status))
+    return {"request_id":str(identifier),"status":status,
+            "max_credits":row[3],"proposal":row[2],
+            "generation_started":False,"credits_spent":0,
+            "next_step":"Separate explicit dispatch required to incur any credits."}
