@@ -97,7 +97,7 @@ def logout(request: Request, response: Response) -> dict:
     if token:
         with connection() as conn:
             conn.execute("UPDATE user_sessions SET revoked_at=now() WHERE token_hash=%s AND revoked_at IS NULL", (token_digest(token),))
-    response.delete_cookie(COOKIE_NAME, path="/", secure=True, httponly=True, samesite="strict")
+    response.delete_cookie(COOKIE_NAME, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
     response.headers["Cache-Control"] = "no-store"
     return {"ok":True}
 
@@ -131,6 +131,6 @@ def change_own_password(payload: ChangePasswordRequest, request: Request, respon
                 "UPDATE oauth_access_tokens SET revoked_at=now() WHERE user_id=%s AND revoked_at IS NULL",
                 (user["id"],),
             )
-    response.delete_cookie(COOKIE_NAME, path="/", secure=True, httponly=True, samesite="strict")
+    response.delete_cookie(COOKIE_NAME, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
     response.headers["Cache-Control"] = "no-store"
     return {"password_changed": True, "sessions_revoked": True, "oauth_tokens_revoked": True}
