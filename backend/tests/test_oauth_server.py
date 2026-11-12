@@ -74,5 +74,5 @@ def test_browser_authorize_get_redirects_to_consent_spa():
     client=TestClient(app,base_url="http://localhost",follow_redirects=False)
     response=client.get("/oauth/authorize?client_id=sample&state=state123456")
     assert response.status_code==303
-    assert response.headers["location"].startswith("/?oauth=1&")
+    assert response.headers["location"].startswith("/nexusai/?oauth=1&")
     assert "client_id=sample" in response.headers["location"]
