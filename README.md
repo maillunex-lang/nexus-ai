@@ -1,15 +1,18 @@
-# NEXUS AI 0.1.1 Secure Foundation
+# NEXUS AI
 
-Development-only scaffold for the NEXUS AI MCP platform. **Do not expose the API or MCP endpoint to the public internet.** OAuth, RBAC enforcement, approval execution and audit enforcement are not implemented.
+MCP platform for supervised game-development automation: OAuth-protected MCP tools for ChatGPT, a Russian operator dashboard, isolated Godot validation and Android debug builds, and a rule-based autonomous Director.
+
+**Do not expose a development instance to the public internet.** The internal bearer token is disabled whenever `NEXUS_OAUTH_ISSUER` is set.
 
 ## Included
-- FastAPI: `/api/health` and `/api/status`
-- FastMCP Streamable HTTP at `/mcp/`, read-only `nexus_status` and `nexus_capabilities`
-- Temporary fail-closed bearer guard for MCP; secret must be at least 32 characters
-- PostgreSQL 16 starter schema and identity schema `db/002_identity.sql`
-- React 19 / Vite diagnostic dashboard in Russian
-- Local-only Docker Compose port `127.0.0.1:4189`
-- GitHub Actions: backend pytest and frontend build
+- FastAPI session API and OAuth 2.1 authorization code + PKCE server (`mcp:read`, `mcp:write`, explicit consent)
+- FastMCP Streamable HTTP at `/mcp/` behind a fail-closed bearer guard
+- Godot inspection, SHA-pinned change validation in isolated copies, debug APK builds with short-lived signed links
+- Autonomous Director: multi-stage pipelines with automatic transitions, multi-file change sets, verification gate, error journal, owner approval flow. See [Director 0.6](docs/AUTONOMOUS_DIRECTOR_0.6.md)
+- React 19 / Vite dashboard: login, consent, Mission Control, builds, approvals, Director console
+- PostgreSQL 16 schema scripts in `db/`; GitHub Actions for backend tests and frontend build
+
+Current state, findings and next steps: [audit and roadmap](docs/AUDIT_AND_ROADMAP_2026-11-13.md).
 
 ## Local Docker start (not on production VPS)
 1. Copy `.env.example` to `.env`.
@@ -34,11 +37,8 @@ npm run build
 ```
 
 ## Security limitations
-- The internal bearer token is a **temporary development-only mechanism**, not OAuth or a safe replacement for public ChatGPT integration.
-- Status endpoints remain unauthenticated; they contain only limited diagnostics.
-- Identity tables do not yet implement login, RBAC middleware, session handling, or permissions.
-- Audit and approval tables do not enforce actions.
-- No privileged tool execution or background agents are implemented.
-- Do not publish the current service; public deployment requires an independently tested OAuth authorization server, secure sessions and audit.
+- The Director is deterministic: no language model, no shell, no publishing; original game directories are read-only.
+- Open items are tracked in [the security audit](docs/SECURITY_AUDIT_2026-11-12.md): no per-session CSRF token (Origin and Fetch Metadata checks only), limited rate limiting, incomplete audit logging of authentication events.
+- Migrations are plain SQL scripts applied manually, not a migration framework.
 
 See [Enterprise roadmap](docs/ENTERPRISE_ROADMAP.md).

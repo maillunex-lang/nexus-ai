@@ -12,8 +12,11 @@ def nexus_status() -> dict:
 
 @mcp.tool()
 def nexus_capabilities() -> dict:
-    """List implemented read-only capabilities."""
-    return {"tools": ["nexus_status", "nexus_capabilities", "nexus_agents", "nexus_workflow", "nexus_godot_inspect_script", "nexus_godot_inspect_shader", "nexus_godot_projects", "nexus_godot_project_report", "nexus_godot_project_file", "nexus_github_repositories", "nexus_github_repository", "nexus_github_tree", "nexus_github_file", "nexus_github_change_preview", "nexus_github_branch_policy", "nexus_meshy_status", "nexus_meshy_text_to_3d_preview", "nexus_meshy_my_requests", "nexus_meshy_request_status", "nexus_meshy_prepare_request", "nexus_meshy_prepare_refine", "nexus_godot_gltf_mobile_audit", "nexus_meshy_review_request", "nexus_meshy_review_refine", "nexus_meshy_dispatch_readiness", "nexus_meshy_dispatch_preview", "nexus_meshy_dispatch_refine", "nexus_meshy_refine_status", "nexus_godot_change_preview", "nexus_godot_workspace_report", "nexus_godot_validate_change", "nexus_godot_validation_status", "nexus_godot_build_android", "nexus_godot_build_status", "nexus_godot_apk_download_link", "nexus_godot_build_project", "nexus_godot_register_project", "nexus_godot_registration_status", "nexus_godot_registered_projects", "nexus_director_capabilities", "nexus_director_run", "nexus_director_status"], "execution_enabled": False}
+    """List implemented MCP tools and Director capabilities."""
+    # Derived from the registry so the list can never drift from the real tools again.
+    return {"tools": [tool.name for tool in mcp._tool_manager.list_tools()], "execution_enabled": False,
+            "director": {"pipelines": True, "automatic_transitions": True, "change_sets": True,
+                         "error_journal": True, "llm": False, "modifies_original_source": False}}
 
 @mcp.tool()
 def nexus_agents() -> dict:
@@ -605,3 +608,147 @@ def nexus_director_approval_status(request_id: str) -> dict:
     """Read the current state of an owner-scoped approval request."""
     from .director_requests import status
     return status(request_id)
+
+# --- Autonomous AI Director 0.6: agents, change sets, pipelines, error journal ---
+
+@mcp.tool()
+def nexus_director_agents() -> dict:
+    """List Director agent roles, the pipeline stages each one executes and your active tasks.
+
+    Agents are deterministic rule executors, not language models.
+    """
+    from .director_pipelines import agents
+    return agents()
+
+
+@mcp.tool()
+def nexus_director_pipelines() -> dict:
+    """Catalog of multi-stage Director pipelines, their stages, agents and safety limits."""
+    from .director_pipelines import catalog
+    return catalog()
+
+
+@mcp.tool()
+def nexus_director_changeset_create(project_id: str, files: list[dict], description: str = "") -> dict:
+    """Propose a safe code change of 1-8 operations on .gd/.gdshader/.tscn/.tres files.
+
+    Modify: {"path", "expected_sha256", "content"} where expected_sha256 comes from
+    nexus_godot_project_file and content is the full new file text.
+    Create: {"action": "create", "path", "content"} for a path that does not exist.
+    Delete: {"action": "delete", "path", "expected_sha256"}. Rename = delete + create.
+    Returns per-file diffs
+    and a static verification verdict (pass/warn/block). Stores an inert, immutable
+    proposal only: no game file is written and nothing is executed.
+    """
+    from .director_changesets import create
+    return create(project_id, files, description)
+
+
+@mcp.tool()
+def nexus_director_changeset_status(changeset_id: str) -> dict:
+    """Re-check your change set against the current source: diffs, SHA pins, verification."""
+    from .director_changesets import inspect
+    return inspect(changeset_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_plan(pipeline: str, project_id: str, changeset_id: str = "") -> dict:
+    """Dry run of a Director pipeline: exact stages, agents, effects and plan digest. Executes nothing."""
+    from .director_pipelines import plan
+    return plan(pipeline, project_id, changeset_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_launch(pipeline: str, project_id: str, changeset_id: str = "", task_id: str = "") -> dict:
+    """Start a Director pipeline; stages then advance automatically.
+
+    Requires owner OAuth mcp:write. With a read token use
+    nexus_director_pipeline_request_approval instead. Changes are applied only to an
+    isolated copy; originals are never modified and nothing is published.
+    Optional task_id links the run to a Mission Control task's history.
+    """
+    from .director_pipelines import launch
+    return launch(pipeline, project_id, changeset_id, "", task_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_request_approval(pipeline: str, project_id: str, changeset_id: str = "", description: str = "", task_id: str = "") -> dict:
+    """Create an inert owner-approval request for an exact pipeline plan and return its approval URL.
+
+    Works with an MCP read token. The owner reviews the stages and the code diff in
+    the NEXUS dashboard; the pipeline starts only after that approval.
+    """
+    from .director_requests import propose_pipeline
+    return propose_pipeline(pipeline, project_id, changeset_id, description, task_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_status(pipeline_id: str) -> dict:
+    """Read your pipeline's state, stages and results. Also performs any due automatic transition."""
+    from .director_pipelines import status
+    return status(pipeline_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_journal(pipeline_id: str) -> dict:
+    """Read up to 100 durable timestamped stage and transition events of your pipeline."""
+    from .director_pipelines import journal
+    return journal(pipeline_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_list(state: str = "", task_id: str = "") -> dict:
+    """List your Director pipelines, optionally filtered by state (running, completed, failed, cancelled) or Mission Control task."""
+    from .director_pipelines import list_pipelines
+    return list_pipelines(state, task_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_cancel(pipeline_id: str) -> dict:
+    """Stop further stages of your running pipeline. Requires owner OAuth mcp:write."""
+    from .director_pipelines import cancel
+    return cancel(pipeline_id)
+
+
+@mcp.tool()
+def nexus_director_pipeline_retry(pipeline_id: str) -> dict:
+    """Retry the failed stage once, only for retryable failures. Requires owner OAuth mcp:write.
+
+    Nothing is retried automatically; non-retryable failures need a corrected change set.
+    """
+    from .director_pipelines import retry
+    return retry(pipeline_id)
+
+
+@mcp.tool()
+def nexus_director_error_log(limit: int = 20, project_id: str = "") -> dict:
+    """Read your classified Director error journal: category, policy, Godot diagnostics, next action."""
+    from .director_errors import list_errors
+    return list_errors(limit, project_id)
+
+
+@mcp.tool()
+def nexus_director_changeset_patch(changeset_id: str) -> dict:
+    """Export your change set as a git-compatible patch for manual `git apply`. Applies nothing."""
+    from .director_adoption import patch
+    return patch(changeset_id)
+
+
+@mcp.tool()
+def nexus_director_adoption_status() -> dict:
+    """Show whether publishing validated change sets to a game's GitHub repository is configured."""
+    from .director_adoption import describe
+    return describe()
+
+
+@mcp.tool()
+def nexus_director_adoption_request(changeset_id: str, description: str = "") -> dict:
+    """Request owner approval to publish a validated change set as a new nexus/ branch and draft PR.
+
+    Works with an MCP read token and executes nothing. Requires a completed
+    change_validate or change_build_apk pipeline for this change set. After the owner
+    approves in the dashboard, one commit is created on a new branch; nothing is
+    merged or deployed and no live game directory is touched.
+    """
+    from .director_requests import propose_adoption
+    return propose_adoption(changeset_id, description)

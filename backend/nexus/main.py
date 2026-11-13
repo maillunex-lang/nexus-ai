@@ -22,14 +22,21 @@ from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authori
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with mcp.session_manager.run():
-        yield
+        # Off by default; enabled only by NEXUS_DIRECTOR_TICK_SECONDS.
+        from .director_scheduler import start as start_director_schedule
+        schedule = start_director_schedule()
+        try:
+            yield
+        finally:
+            if schedule:
+                schedule.cancel()
 
 app = FastAPI(title="NEXUS AI Foundation", version="0.1.4-dev", lifespan=lifespan)
 app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path.startswith("/api/director/requests/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path.startswith("/api/director/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Browsers sending cross-site form requests must not mutate sessions.
         fetch_site = request.headers.get("sec-fetch-site", "")
         if fetch_site == "cross-site":
@@ -323,3 +330,73 @@ class DirectorApprovalDecision(BaseModel):
 @app.post("/api/director/requests/{request_id}/review")
 def director_request_review(request_id: str, payload: DirectorApprovalDecision, request: Request):
     return approval_requests.review(request_id,payload.decision,request)
+
+# Owner-session Director console: pipelines, agents and the error journal.
+from . import dashboard_director
+
+class DirectorPipelineLaunch(BaseModel):
+    pipeline: str
+    project_id: str
+    changeset_id: str = ""
+    task_id: str = ""
+
+class DirectorChangeValidation(BaseModel):
+    project_id: str
+    enabled: bool
+
+@app.get("/api/director/settings")
+def director_settings_read(request: Request):
+    return dashboard_director.settings(request)
+
+@app.post("/api/director/settings/change-validation")
+def director_settings_change_validation(payload: DirectorChangeValidation, request: Request):
+    return dashboard_director.set_change_validation(request, payload.project_id, payload.enabled)
+
+@app.get("/api/director/agents")
+def director_agents(request: Request):
+    return dashboard_director.agents(request)
+
+@app.get("/api/director/catalog")
+def director_catalog(request: Request):
+    return dashboard_director.catalog(request)
+
+@app.get("/api/director/errors")
+def director_errors_list(request: Request, limit: int = 20, project_id: str = ""):
+    return dashboard_director.errors(request, limit, project_id)
+
+@app.get("/api/director/pipelines")
+def director_pipeline_list(request: Request, state: str = "", task_id: str = ""):
+    return dashboard_director.pipelines(request, state, task_id)
+
+@app.post("/api/director/pipelines", status_code=202)
+def director_pipeline_launch(payload: DirectorPipelineLaunch, request: Request):
+    return dashboard_director.launch(request, payload.pipeline, payload.project_id, payload.changeset_id, payload.task_id)
+
+@app.get("/api/director/pipelines/{pipeline_id}")
+def director_pipeline_detail(pipeline_id: str, request: Request):
+    return dashboard_director.detail(request, pipeline_id)
+
+@app.get("/api/director/pipelines/{pipeline_id}/journal")
+def director_pipeline_journal(pipeline_id: str, request: Request):
+    return dashboard_director.journal(request, pipeline_id)
+
+@app.post("/api/director/pipelines/{pipeline_id}/cancel")
+def director_pipeline_cancel(pipeline_id: str, request: Request):
+    return dashboard_director.cancel(request, pipeline_id)
+
+@app.post("/api/director/pipelines/{pipeline_id}/retry")
+def director_pipeline_retry(pipeline_id: str, request: Request):
+    return dashboard_director.retry(request, pipeline_id)
+
+@app.get("/api/director/adoption")
+def director_adoption_status(request: Request):
+    return dashboard_director.adoption(request)
+
+@app.get("/api/director/changesets/{changeset_id}/patch")
+def director_changeset_patch(changeset_id: str, request: Request):
+    result = dashboard_director.changeset_patch(request, changeset_id)
+    if result.get("error"):
+        raise HTTPException(404 if result["error"] == "changeset_not_found" else 409, result["error"])
+    return Response(content=result["patch"], media_type="text/x-diff; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % result["filename"],
+                             "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})

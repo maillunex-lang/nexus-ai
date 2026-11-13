@@ -65,22 +65,82 @@ def source_manifest(root):
                 raise ValueError("project_exceeds_copy_limits")
     return root,files,total
 
-def verify_patch(root,patch):
-    if patch is None:
-        return None
-    if not isinstance(patch,dict) or set(patch)!={"path","expected_sha256","content"}:
-        raise ValueError("invalid_patch")
-    content=patch["content"]
-    sha=patch["expected_sha256"]
+MAX_PATCHES=8
+
+def safe_new_file(root,relative):
+    """Validated path for a file that must not exist yet in the source project."""
+    if not isinstance(relative,str) or not relative or len(relative)>240 or relative.startswith("/") or "\\" in relative:
+        raise ValueError("invalid_path")
+    parts=relative.split("/")
+    if any(part in ("",".","..") or part in EXCLUDE for part in parts):
+        raise ValueError("invalid_path")
+    candidate=root.joinpath(*parts)
+    if candidate.suffix not in EDITABLE:
+        raise ValueError("unsupported_file_type")
+    cursor=root
+    for index,part in enumerate(parts):
+        cursor=cursor/part
+        if cursor.is_symlink():
+            raise ValueError("symlink_rejected")
+        if index<len(parts)-1 and cursor.exists() and not cursor.is_dir():
+            raise ValueError("invalid_path")
+    if os.path.lexists(candidate):
+        raise ValueError("file_already_exists")
+    return candidate
+
+def _check_content(content):
     if not isinstance(content,str) or "\x00" in content or len(content.encode("utf-8"))>MAX_PATCH:
         raise ValueError("invalid_patch_content")
+    return content.encode("utf-8")
+
+def _check_pinned(root,patch):
+    sha=patch["expected_sha256"]
     if not isinstance(sha,str) or len(sha)!=64 or any(x not in "0123456789abcdef" for x in sha):
         raise ValueError("invalid_patch_sha")
     path=safe_file(root,patch["path"])
-    original=path.read_bytes()
-    if hashlib.sha256(original).hexdigest()!=sha:
+    if hashlib.sha256(path.read_bytes()).hexdigest()!=sha:
         raise ValueError("source_changed")
-    return path,content.encode("utf-8")
+    return path
+
+def _verify_operation(root,patch):
+    """One change-set operation -> (action,path,content bytes or None)."""
+    if not isinstance(patch,dict):
+        raise ValueError("invalid_patch")
+    action=patch.get("action","modify")
+    keys=set(patch)-{"action"}
+    if action=="create" and keys=={"path","content"}:
+        content=_check_content(patch["content"])
+        return "create",safe_new_file(root,patch["path"]),content
+    if action=="delete" and keys=={"path","expected_sha256"}:
+        return "delete",_check_pinned(root,patch),None
+    if action=="modify" and keys=={"path","expected_sha256","content"}:
+        content=_check_content(patch["content"])
+        return "modify",_check_pinned(root,patch),content
+    raise ValueError("invalid_patch")
+
+def verify_patch(root,patch):
+    """Verify one SHA-pinned patch, or a list of up to MAX_PATCHES operations.
+
+    A dict (legacy single-file modify) returns (path,content) as before. A list
+    returns (action,path,content) triples for modify/create/delete. Everything
+    is checked before any workspace is created.
+    """
+    if patch is None:
+        return None
+    if isinstance(patch,list):
+        if not 1<=len(patch)<=MAX_PATCHES or not all(isinstance(item,dict) for item in patch):
+            raise ValueError("invalid_patch")
+        paths=[item.get("path") for item in patch]
+        if len(set(map(str,paths)))!=len(paths):
+            raise ValueError("duplicate_patch_path")
+        verified=[_verify_operation(root,item) for item in patch]
+        if sum(len(content or b"") for _,_,content in verified)>MAX_PATCH:
+            raise ValueError("invalid_patch_content")
+        return verified
+    if not isinstance(patch,dict) or set(patch)!={"path","expected_sha256","content"}:
+        raise ValueError("invalid_patch")
+    _,path,content=_verify_operation(root,patch)
+    return path,content
 
 def run(root,parent,patch=None,godot="godot",timeout=120):
     root,files,total=source_manifest(root)
@@ -106,9 +166,14 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             destination=workspace/relative
             destination.parent.mkdir(parents=True,exist_ok=True)
             shutil.copy2(source,destination,follow_symlinks=False)
-        if verified:
-            original,content=verified
-            (workspace/original.relative_to(root)).write_bytes(content)
+        patched=verified if isinstance(verified,list) else [("modify",*verified)] if verified else []
+        for action,original,content in patched:
+            target=workspace/original.relative_to(root)
+            if action=="delete":
+                target.unlink()
+            else:
+                target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_bytes(content)
         # Editor plugins and @tool scripts may execute code: restrict host access.
         executable=Path(executable).resolve(strict=True)
         command=[sandbox,"--die-with-parent","--unshare-net","--unshare-pid","--unshare-user",
@@ -130,13 +195,19 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             output=str(exc)[-MAX_LOG:]
             exit_code=None
             timed_out=True
-        detected_errors=len(re.findall(r"(?m)^\\s*(?:ERROR:|SCRIPT ERROR:|Parse Error:)",output))
+        # The previous pattern escaped the backslash twice and could never match.
+        detected_errors=len(re.findall(r"(?m)^\s*(?:ERROR:|SCRIPT ERROR:|Parse Error:)",output))
+        script_errors=len(re.findall(r"(?m)^\s*(?:SCRIPT ERROR:|Parse Error:)",output))
         report={"job_id":job_id,"workspace":str(workspace),"source_project":str(root),
                 "source_files":len(files),"source_bytes":total,
-                "patch_applied_to_copy":bool(verified),"original_modified":False,
+                "patch_applied_to_copy":bool(verified),"patched_files":len(patched),
+                "original_modified":False,
                 "godot_exit_code":exit_code,"timed_out":timed_out,
-                "godot_errors":detected_errors,
-                "passed":exit_code==0 and not timed_out and detected_errors==0,
+                "godot_errors":detected_errors,"godot_script_errors":script_errors,
+                # A patched copy must parse cleanly. Unpatched builds of existing games keep
+                # the exit-code rule they have always effectively had, so engine "ERROR:"
+                # noise that those games already print cannot start failing their builds.
+                "passed":exit_code==0 and not timed_out and (script_errors==0 or not patched),
                 "godot_output":output,"timestamp":int(time.time())}
         (workspace/"nexus_godot_report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
         return report
