@@ -219,11 +219,7 @@ def check_file(path: str, new: str, old: str = "", exists=None) -> list[dict]:
     return [{"path": path, **check} for check in checks]
 
 
-def verify(files: list[dict], exists=None) -> dict:
-    """files: [{"path","old","new"}]. `exists(relative_path)` resolves res:// targets."""
-    checks = []
-    for item in files:
-        checks += check_file(item["path"], item["new"], item.get("old", ""), exists)
+def summarize(checks: list[dict]) -> dict:
     blocking = sum(1 for c in checks if c["severity"] == "block")
     warnings = sum(1 for c in checks if c["severity"] == "warn")
     return {"verdict": "block" if blocking else "warn" if warnings else "pass",
@@ -231,3 +227,11 @@ def verify(files: list[dict], exists=None) -> dict:
             "checks": checks[:MAX_CHECKS], "checks_truncated": len(checks) > MAX_CHECKS,
             "analysis": "static_rules", "godot_executed": False,
             "note": "Статические правила. Окончательную проверку выполняет Godot в изолированной копии."}
+
+
+def verify(files: list[dict], exists=None, extra_checks=()) -> dict:
+    """files: [{"path","old","new"}]. `exists(relative_path)` resolves res:// targets."""
+    checks = []
+    for item in files:
+        checks += check_file(item["path"], item["new"], item.get("old", ""), exists)
+    return summarize(checks + list(extra_checks))

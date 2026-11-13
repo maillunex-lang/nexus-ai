@@ -36,9 +36,9 @@ def process(file):
         if not isinstance(data.get("requested_by"),str) or len(data["requested_by"])>128:
             raise ValueError("invalid_requester")
         if set(data)=={"job_id","project_id","patches","requested_by"}:
-            # Director change set: several SHA-pinned files applied to one isolated copy.
+            # Director change set: SHA-pinned modify/create/delete operations on one isolated copy.
             patch=data["patches"]
-            if not isinstance(patch,list) or len(patch)<2:
+            if not isinstance(patch,list) or not patch:
                 raise ValueError("invalid_job_shape")
         elif set(data)=={"job_id","project_id","path","expected_sha256","content","requested_by"}:
             patch={"path":data["path"],"expected_sha256":data["expected_sha256"],"content":data["content"]}

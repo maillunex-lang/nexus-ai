@@ -132,3 +132,98 @@ def test_validation_only_for_change_enabled_projects(tmp_path):
         result = c.create("watermmo", [change("scripts/a.gd", OLD_A, "extends Node\nvar x = 1\n")])
         assert result["validation_enabled"] is False and result["ready_for_validation"] is False
         assert c.submit_validation(c.load(result["changeset_id"], "owner-1"))["error"] == "change_validation_not_enabled"
+
+
+def test_create_delete_and_rename_operations(tmp_path):
+    with env(tmp_path) as (root, queue):
+        result = c.create("basheco", [
+            {"action": "create", "path": "ui/hud.gd", "content": "extends Control\n"},
+            {"action": "delete", "path": "scripts/b.gd", "expected_sha256": sha(OLD_B)},
+            change("scripts/a.gd", OLD_A, "extends Node\nvar x = 1\n")], "rename b to hud")
+        assert result["operations"] == {"modify": 1, "create": 1, "delete": 1} and result["verification"]["verdict"] == "pass"
+        assert "+extends Control" in result["files"][0]["diff"] and "-extends Node2D" in result["files"][1]["diff"]
+        assert not (root / "ui").exists() and (root / "scripts/b.gd").exists()
+        job = c.submit_validation(c.load(result["changeset_id"], "owner-1"))
+        patches = json.loads((queue / "pending" / (job["job_id"] + ".json")).read_text())["patches"]
+        assert patches[0] == {"action": "create", "path": "ui/hud.gd", "content": "extends Control\n"}
+        assert patches[1] == {"action": "delete", "path": "scripts/b.gd", "expected_sha256": sha(OLD_B)}
+        assert set(patches[2]) == {"path", "expected_sha256", "content"}
+        # A single create cannot use the legacy single-file job.
+        one = c.create("basheco", [{"action": "create", "path": "ui/menu.gd", "content": "extends Control\n"}])
+        job = c.submit_validation(c.load(one["changeset_id"], "owner-1"))
+        assert "patches" in json.loads((queue / "pending" / (job["job_id"] + ".json")).read_text())
+        # The file appeared in the source afterwards: the change set is stale.
+        (root / "ui").mkdir()
+        (root / "ui/menu.gd").write_text("extends Node\n")
+        assert c.inspect(one["changeset_id"])["error"] == "already_exists"
+
+
+def test_create_delete_rejections(tmp_path):
+    with env(tmp_path) as (root, queue):
+        for files, error in (
+            ([{"action": "create", "path": "scripts/a.gd", "content": "x"}], "already_exists"),
+            ([{"action": "create", "path": "scripts/a.gd/x.gd", "content": "x"}], "invalid_path"),
+            ([{"action": "create", "path": "tool.sh", "content": "x"}], "unsupported_file_type"),
+            ([{"action": "create", "path": ".godot/x.gd", "content": "x"}], "invalid_path"),
+            ([{"action": "create", "path": "x.gd", "content": "x", "expected_sha256": "0" * 64}], "invalid_files"),
+            ([{"action": "delete", "path": "scripts/a.gd", "expected_sha256": "0" * 64}], "source_changed"),
+            ([{"action": "delete", "path": "scripts/none.gd", "expected_sha256": "0" * 64}], "not_found"),
+            ([{"action": "delete", "path": "scripts/a.gd", "expected_sha256": sha(OLD_A), "content": ""}], "invalid_files"),
+            ([{"action": "delete", "path": "project.godot", "expected_sha256": "0" * 64}], "unsupported_file_type"),
+            ([{"action": "move", "path": "scripts/a.gd"}], "invalid_files"),
+        ):
+            assert c.create("basheco", files)["error"] == error, files
+        blocked = c.create("basheco", [{"action": "create", "path": "x.gd", "content": 'func a():\n\tOS.execute("sh", [])\n'}])
+        assert blocked["verification"]["verdict"] == "block"
+        assert not (root / "x.gd").exists() and not (queue / "pending").exists()
+
+
+def test_deleting_a_referenced_file_warns(tmp_path):
+    with env(tmp_path) as (root, queue):
+        (root / "main.tscn").write_text('[gd_scene format=3]\n[ext_resource type="Script" path="res://scripts/b.gd" id="1"]\n')
+        result = c.create("basheco", [{"action": "delete", "path": "scripts/b.gd", "expected_sha256": sha(OLD_B)}])
+        check = result["verification"]["checks"][0]
+        assert check["code"] == "deleted_file_still_referenced" and "main.tscn" in check["message"]
+        assert result["verification"]["verdict"] == "warn"
+        fixed = c.create("basheco", [
+            {"action": "delete", "path": "scripts/b.gd", "expected_sha256": sha(OLD_B)},
+            change("main.tscn", (root / "main.tscn").read_text(), '[gd_scene format=3]\n[node name="Main" type="Node"]\n')])
+        assert fixed["verification"]["verdict"] == "pass"
+
+
+def test_records_written_before_actions_existed_still_load(tmp_path):
+    with env(tmp_path) as (root, queue):
+        result = c.create("basheco", [change("scripts/a.gd", OLD_A, "extends Node\nvar x = 1\n")])
+        path = queue / "director-changesets" / (result["changeset_id"] + ".json")
+        data = json.loads(path.read_text())
+        del data["files"][0]["action"]
+        path.write_text(json.dumps(data))
+        assert c.inspect(result["changeset_id"])["digest"] == result["digest"]
+
+
+def test_owner_enables_change_validation_per_project(tmp_path):
+    from nexus import director_settings as s
+    entries = {"basheco": {"name": "B"}, "watermmo": {"name": "W"}}
+    with env(tmp_path, project="watermmo") as (root, queue), patch.object(s, "ROOT", queue / "director-settings"), \
+         patch.object(s, "PROJECTS", entries):
+        result = c.create("watermmo", [change("scripts/a.gd", OLD_A, "extends Node\nvar x = 1\n")])
+        assert result["validation_enabled"] is False
+        assert s.set_change_enabled("future-game", True)["error"] == "project_not_build_enabled"
+        assert s.set_change_enabled("basheco", False)["error"] == "baseline_project_locked"
+        assert s.set_change_enabled("watermmo", "yes")["error"] == "invalid_value"
+        token = principal_var.set({"user_id": "owner-1", "roles": ["owner"], "scope": "mcp:read"})
+        try:
+            with pytest.raises(PermissionError):
+                s.set_change_enabled("watermmo", True)
+        finally:
+            principal_var.reset(token)
+        described = s.set_change_enabled("watermmo", True)
+        assert [p["enabled"] for p in described["change_validation"]] == [True, True]
+        assert c.inspect(result["changeset_id"])["ready_for_validation"] is True
+        job = c.submit_validation(c.load(result["changeset_id"], "owner-1"))
+        payload = json.loads((queue / "pending" / (job["job_id"] + ".json")).read_text())
+        assert payload["project_id"] == "watermmo" and len(payload["patches"]) == 1
+        s.set_change_enabled("watermmo", False)
+        assert c.change_enabled() == ("basheco",)
+        assert c.submit_validation(c.load(result["changeset_id"], "owner-1"))["error"] == "change_validation_not_enabled"
+        assert len((queue / "director-settings" / "audit.jsonl").read_text().splitlines()) == 2

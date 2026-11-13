@@ -40,3 +40,11 @@ def test_unknown_shapes_fail_closed(tmp_path):
     assert state == "failed" and "invalid_job_shape" in output["result"]["error"] and not run.called
     state, output, run = _run(tmp_path / "second", {"job_id": JOB, "project_id": "basheco", "command": "sh", "requested_by": "owner"})
     assert state == "failed" and not run.called
+
+
+def test_single_operation_changeset_is_accepted(tmp_path):
+    patches = [{"action": "create", "path": "new.gd", "content": "extends Node\n"}]
+    state, output, run = _run(tmp_path, {"job_id": JOB, "project_id": "basheco", "patches": patches, "requested_by": "owner"})
+    assert state == "completed" and run.call_args.args[2] == patches
+    state, output, run = _run(tmp_path / "empty", {"job_id": JOB, "project_id": "basheco", "patches": [], "requested_by": "owner"})
+    assert state == "failed" and not run.called

@@ -108,3 +108,33 @@ def test_script_errors_fail_patched_copy_but_not_unpatched_build(tmp_path):
         plain=mod.run(root,parent)
     assert patched["godot_script_errors"]==1 and patched["godot_errors"]==2 and not patched["passed"]
     assert plain["godot_script_errors"]==1 and plain["passed"]
+
+def test_create_and_delete_operations_only_touch_the_copy(tmp_path):
+    root,parent,patches=_two_files(tmp_path)
+    operations=[patches[0],
+                {"action":"create","path":"ui/new/hud.gd","content":"extends Control\n"},
+                {"action":"delete","path":"other.gd","expected_sha256":hashlib.sha256(b"extends Node2D\n").hexdigest()}]
+    with patch.object(mod.shutil,"which",return_value=sys.executable),patch.object(mod.subprocess,"run",return_value=_result()):
+        report=mod.run(root,parent,operations)
+    workspace=Path(report["workspace"])
+    assert report["passed"] and report["patched_files"]==3
+    assert (workspace/"ui/new/hud.gd").read_text()=="extends Control\n" and not (workspace/"other.gd").exists()
+    assert (root/"other.gd").exists() and not (root/"ui").exists()
+
+def test_create_and_delete_are_validated_before_any_copy(tmp_path):
+    root,parent,patches=_two_files(tmp_path)
+    for operation,error in (({"action":"create","path":"main.gd","content":"x"},"file_already_exists"),
+                            ({"action":"create","path":"../evil.gd","content":"x"},"invalid_path"),
+                            ({"action":"create","path":"main.gd/child.gd","content":"x"},"invalid_path"),
+                            ({"action":"create","path":"run.sh","content":"x"},"unsupported_file_type"),
+                            ({"action":"create","path":".git/hook.gd","content":"x"},"invalid_path"),
+                            ({"action":"delete","path":"other.gd","expected_sha256":"0"*64},"source_changed"),
+                            ({"action":"delete","path":"project.godot","expected_sha256":"0"*64},"unsupported_file_type"),
+                            ({"action":"delete","path":"other.gd","expected_sha256":"0"*64,"content":"x"},"invalid_patch"),
+                            ({"action":"chmod","path":"other.gd"},"invalid_patch")):
+        with pytest.raises(ValueError,match=error):
+            mod.run(root,parent,[operation])
+    assert not list(parent.iterdir())
+    (root/"link").symlink_to(tmp_path)
+    with pytest.raises(ValueError,match="symlink_rejected"):
+        mod.verify_patch(root,[{"action":"create","path":"link/x.gd","content":"x"}])

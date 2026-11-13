@@ -117,8 +117,8 @@ def _plan(owner_id: str, pipeline: str, project_id: str, changeset_id: str) -> d
             return {"error": "changeset_not_found"}
         if record["project_id"] != project_id:
             return {"error": "changeset_project_mismatch"}
-        if project_id not in changesets.CHANGE_ENABLED:
-            return {"error": "change_validation_not_enabled", "enabled_projects": list(changesets.CHANGE_ENABLED)}
+        if project_id not in changesets.change_enabled():
+            return {"error": "change_validation_not_enabled", "enabled_projects": list(changesets.change_enabled())}
         changeset_digest = record["digest"]
     elif changeset_id:
         return {"error": "unexpected_changeset"}
@@ -150,7 +150,7 @@ def catalog() -> dict:
                                 "builds_debug_apk": spec["builds"],
                                 "stages": [{"name": n, "agent": STAGES[n][0], "description": STAGES[n][1]} for n in spec["stages"]]}
                           for key, spec in PIPELINES.items()},
-            "build_enabled_projects": sorted(PROJECTS), "change_enabled_projects": list(changesets.CHANGE_ENABLED),
+            "build_enabled_projects": sorted(PROJECTS), "change_enabled_projects": list(changesets.change_enabled()),
             "automatic_transitions": True, "automatic_retry": False, "automatic_code_fix": False,
             "automatic_publish": False, "modifies_original_source": False,
             "limits": {"active_pipelines_per_owner": MAX_ACTIVE_PER_OWNER, "stage_attempts": MAX_STAGE_ATTEMPTS,
