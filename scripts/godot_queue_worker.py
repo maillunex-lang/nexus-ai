@@ -134,6 +134,8 @@ def main():
     for file in sorted((BASE/"build_pending").glob("godot-*.json"))[:1]:
         process_build(file)
         count+=1
+    from godot_performance_worker import process_pending
+    process_pending(BASE, WORKSPACES, PROJECTS)
     process_onboarding()
     print("processed",count)
 
