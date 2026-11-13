@@ -58,7 +58,7 @@ Transitions happen on `nexus_director_pipeline_status`, on the dashboard detail 
 docker compose exec -T api python -m nexus.director_pipeline_worker
 ```
 
-To schedule it without any host timer, set `NEXUS_DIRECTOR_TICK_SECONDS` (15–3600) on the API service: the API process then runs the same pass on that interval. It is **off by default**. A per-pipeline lock prevents two callers from starting the same stage twice.
+To schedule it without any host timer, set `NEXUS_DIRECTOR_TICK_SECONDS` (15–3600) on the API service: the API process then runs the same pass on that interval. It is **off by default**, and `compose.yaml` does not forward the variable: add it to the `api` service environment in your own override file. A per-pipeline lock prevents two callers from starting the same stage twice.
 
 ## Mission Control link
 
