@@ -28,7 +28,7 @@
 | 3 | Approval-flow integration, MCP tools, dashboard API | done |
 | 4 | Dashboard console and diff review on the approval page | done |
 | 5 | Deploy to Lunex and run each pipeline against the real toolchain and a live ChatGPT session | **owner action, not done** |
-| 6 | Link pipelines to Mission Control tasks; retention for file state; schedule the tick | next |
-| 7 | File creation/deletion in change sets; per-project change enablement decided by the owner | next |
+| 6 | Link pipelines to Mission Control tasks; retention for file state; optional in-process schedule (`NEXUS_DIRECTOR_TICK_SECONDS`, off by default) | done |
+| 7 | File creation/deletion in change sets; per-project change enablement decided by the owner in the dashboard | done |
 | 8 | Reviewed "adopt change" path into a Git branch of the game (never the live directory) | needs design and owner approval |
 | 9 | Optional LLM planner behind the same approval gate | needs provider, budget and security decisions |

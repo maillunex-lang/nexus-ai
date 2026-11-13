@@ -22,7 +22,14 @@ from .oauth_server import AuthorizeRequest, TokenRequest, RevokeRequest, authori
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with mcp.session_manager.run():
-        yield
+        # Off by default; enabled only by NEXUS_DIRECTOR_TICK_SECONDS.
+        from .director_scheduler import start as start_director_schedule
+        schedule = start_director_schedule()
+        try:
+            yield
+        finally:
+            if schedule:
+                schedule.cancel()
 
 app = FastAPI(title="NEXUS AI Foundation", version="0.1.4-dev", lifespan=lifespan)
 app.add_middleware(MCPBearerGuard)
@@ -331,6 +338,19 @@ class DirectorPipelineLaunch(BaseModel):
     pipeline: str
     project_id: str
     changeset_id: str = ""
+    task_id: str = ""
+
+class DirectorChangeValidation(BaseModel):
+    project_id: str
+    enabled: bool
+
+@app.get("/api/director/settings")
+def director_settings_read(request: Request):
+    return dashboard_director.settings(request)
+
+@app.post("/api/director/settings/change-validation")
+def director_settings_change_validation(payload: DirectorChangeValidation, request: Request):
+    return dashboard_director.set_change_validation(request, payload.project_id, payload.enabled)
 
 @app.get("/api/director/agents")
 def director_agents(request: Request):
@@ -345,12 +365,12 @@ def director_errors_list(request: Request, limit: int = 20, project_id: str = ""
     return dashboard_director.errors(request, limit, project_id)
 
 @app.get("/api/director/pipelines")
-def director_pipeline_list(request: Request, state: str = ""):
-    return dashboard_director.pipelines(request, state)
+def director_pipeline_list(request: Request, state: str = "", task_id: str = ""):
+    return dashboard_director.pipelines(request, state, task_id)
 
 @app.post("/api/director/pipelines", status_code=202)
 def director_pipeline_launch(payload: DirectorPipelineLaunch, request: Request):
-    return dashboard_director.launch(request, payload.pipeline, payload.project_id, payload.changeset_id)
+    return dashboard_director.launch(request, payload.pipeline, payload.project_id, payload.changeset_id, payload.task_id)
 
 @app.get("/api/director/pipelines/{pipeline_id}")
 def director_pipeline_detail(pipeline_id: str, request: Request):

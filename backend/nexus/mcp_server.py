@@ -630,10 +630,13 @@ def nexus_director_pipelines() -> dict:
 
 @mcp.tool()
 def nexus_director_changeset_create(project_id: str, files: list[dict], description: str = "") -> dict:
-    """Propose a safe multi-file code change (1-8 existing .gd/.gdshader/.tscn/.tres files).
+    """Propose a safe code change of 1-8 operations on .gd/.gdshader/.tscn/.tres files.
 
-    Each item: {"path", "expected_sha256", "content"} where expected_sha256 comes from
-    nexus_godot_project_file and content is the full new file text. Returns per-file diffs
+    Modify: {"path", "expected_sha256", "content"} where expected_sha256 comes from
+    nexus_godot_project_file and content is the full new file text.
+    Create: {"action": "create", "path", "content"} for a path that does not exist.
+    Delete: {"action": "delete", "path", "expected_sha256"}. Rename = delete + create.
+    Returns per-file diffs
     and a static verification verdict (pass/warn/block). Stores an inert, immutable
     proposal only: no game file is written and nothing is executed.
     """
@@ -656,26 +659,27 @@ def nexus_director_pipeline_plan(pipeline: str, project_id: str, changeset_id: s
 
 
 @mcp.tool()
-def nexus_director_pipeline_launch(pipeline: str, project_id: str, changeset_id: str = "") -> dict:
+def nexus_director_pipeline_launch(pipeline: str, project_id: str, changeset_id: str = "", task_id: str = "") -> dict:
     """Start a Director pipeline; stages then advance automatically.
 
     Requires owner OAuth mcp:write. With a read token use
     nexus_director_pipeline_request_approval instead. Changes are applied only to an
     isolated copy; originals are never modified and nothing is published.
+    Optional task_id links the run to a Mission Control task's history.
     """
     from .director_pipelines import launch
-    return launch(pipeline, project_id, changeset_id)
+    return launch(pipeline, project_id, changeset_id, "", task_id)
 
 
 @mcp.tool()
-def nexus_director_pipeline_request_approval(pipeline: str, project_id: str, changeset_id: str = "", description: str = "") -> dict:
+def nexus_director_pipeline_request_approval(pipeline: str, project_id: str, changeset_id: str = "", description: str = "", task_id: str = "") -> dict:
     """Create an inert owner-approval request for an exact pipeline plan and return its approval URL.
 
     Works with an MCP read token. The owner reviews the stages and the code diff in
     the NEXUS dashboard; the pipeline starts only after that approval.
     """
     from .director_requests import propose_pipeline
-    return propose_pipeline(pipeline, project_id, changeset_id, description)
+    return propose_pipeline(pipeline, project_id, changeset_id, description, task_id)
 
 
 @mcp.tool()
@@ -693,10 +697,10 @@ def nexus_director_pipeline_journal(pipeline_id: str) -> dict:
 
 
 @mcp.tool()
-def nexus_director_pipeline_list(state: str = "") -> dict:
-    """List your Director pipelines, optionally filtered: running, completed, failed, cancelled."""
+def nexus_director_pipeline_list(state: str = "", task_id: str = "") -> dict:
+    """List your Director pipelines, optionally filtered by state (running, completed, failed, cancelled) or Mission Control task."""
     from .director_pipelines import list_pipelines
-    return list_pipelines(state)
+    return list_pipelines(state, task_id)
 
 
 @mcp.tool()

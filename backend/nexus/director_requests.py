@@ -66,18 +66,22 @@ def propose(project_id:str,action:str,description:str="")->dict:
          "action":action,"approval_url":BASE_URL+data["id"],
          "expires_at":data["expires_at"],"executed":False,
          "message":"Отправьте владельцу ссылку approval_url для подтверждения в панели NEXUS."}
-def propose_pipeline(pipeline:str,project_id:str,changeset_id:str="",description:str="")->dict:
+def propose_pipeline(pipeline:str,project_id:str,changeset_id:str="",description:str="",task_id:str="")->dict:
  """Inert request to run an exact Director pipeline plan; mcp:read may propose, never execute."""
  owner=require_owner()
  if not isinstance(description,str) or len(description)>1500 or any(ord(c)<32 and c not in "\n\t" for c in description):
   return {"error":"invalid_description"}
  planned=pipelines.plan(pipeline,project_id,changeset_id)
  if planned.get("error"):return planned
+ if task_id:
+  task=pipelines.task_links.resolve(task_id,str(owner["user_id"]))
+  if task.get("error"):return task
+  task_id=task["task_id"]
  now=datetime.now(timezone.utc)
  data={"id":"req-"+uuid.uuid4().hex,"owner":str(owner["user_id"]),
        "project_id":project_id,"action":"run_pipeline","description":description,
        "pipeline":pipeline,"changeset_id":changeset_id,"plan_digest":planned["plan_digest"],
-       "status":"pending","created_at":now.isoformat(),
+       "task_id":task_id,"status":"pending","created_at":now.isoformat(),
        "expires_at":(now+timedelta(hours=24)).isoformat(),"result":None}
  _save(data,True)
  return {"request_id":data["id"],"status":"pending","project_id":project_id,
@@ -112,7 +116,7 @@ def status(request_id:str)->dict:
  owner=require_owner()
  data=_read(request_id)
  if data["owner"]!=str(owner["user_id"]):return {"error":"not_found"}
- return _with_build_state({k:data[k] for k in ("id","project_id","action","description","status","created_at","expires_at","result","pipeline","changeset_id","plan_digest") if k in data})
+ return _with_build_state({k:data[k] for k in ("id","project_id","action","description","status","created_at","expires_at","result","pipeline","changeset_id","plan_digest","task_id") if k in data})
 
 def download_link(request_id:str,request)->dict:
  user=_session_owner(request)
@@ -176,7 +180,7 @@ def review(request_id,decision,request):
     else:result=build_start(d["project_id"])
    elif d["action"]=="run_pipeline":
     # The approved digest pins pipeline, project, change set contents and stage list.
-    result=pipelines.launch(d.get("pipeline"),d["project_id"],d.get("changeset_id",""),d.get("plan_digest") or "invalid")
+    result=pipelines.launch(d.get("pipeline"),d["project_id"],d.get("changeset_id",""),d.get("plan_digest") or "invalid",d.get("task_id") or "")
     result={k:result.get(k) for k in ("pipeline_id","pipeline","state","current_stage","error") if result.get(k) is not None}
    elif d["action"]=="inspect_project":
     result=inspect_project(d["project_id"])

@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from . import director_changesets as changesets
 from . import director_errors as errors
 from . import director_store as store
+from . import director_task_links as task_links
 from .agents import AGENTS
 from .android_optimizer import inspect as android_audit
 from .godot_build_queue import status as build_status, submit as build_validated
@@ -177,6 +178,12 @@ def _journal(record: dict, event: dict) -> None:
         store.append_jsonl(ROOT / "events" / (record["id"] + ".jsonl"), event)
     except (OSError, ValueError):
         pass
+
+
+def _notify(record: dict, milestone: str) -> None:
+    """Mirror a pipeline milestone into the linked Mission Control task, best effort."""
+    if record.get("task_id"):
+        task_links.record(record["task_id"], record["owner"], milestone)
 
 
 def _owned(owner_id: str) -> list[dict]:
@@ -364,6 +371,7 @@ def _fail_stage(record, stage, outcome) -> None:
     stage["diagnostics"] = entry["diagnostics"][:10]
     record["state"] = "failed"
     record["failure"] = {key: entry[key] for key in ("category", "policy", "retryable", "auto_retry", "next_action")}
+    _notify(record, "failed")
     _journal(record, {"event": "stage_failed", "stage": stage["name"], "agent": stage["agent"],
                       "error": outcome["error"], "category": entry["category"], "policy": entry["policy"]})
 
@@ -418,6 +426,7 @@ def _advance(record: dict) -> bool:
             record["state"] = "completed"
             record["finished_at"] = store.stamp()
             _journal(record, {"event": "pipeline_completed"})
+            _notify(record, "completed")
         else:
             record["current"] += 1
             _journal(record, {"event": "transition", "to_stage": record["stages"][record["current"]]["name"],
@@ -446,7 +455,8 @@ def _view(record: dict) -> dict:
     view = {"pipeline_id": record["id"], "pipeline": record["pipeline"], "project_id": record["project_id"],
             "state": record["state"], "progress": "%d/%d" % (done, len(stages)),
             "current_stage": current["name"], "current_agent": current["agent"], "stages": stages,
-            "changeset_id": record["changeset_id"] or None, "plan_digest": record["plan_digest"],
+            "changeset_id": record["changeset_id"] or None, "task_id": record.get("task_id") or None,
+            "plan_digest": record["plan_digest"],
             "created_at": record["created_at"], "published": False, "source_modified": False}
     if record["state"] == "failed":
         view["failure"] = {"stage": current["name"], "error": current.get("error"), **record.get("failure", {})}
@@ -469,8 +479,11 @@ def _can_retry(record: dict) -> bool:
 
 # --- public operations ---------------------------------------------------------
 
-def launch(pipeline: str, project_id: str, changeset_id: str = "", expected_digest: str = "") -> dict:
-    """Authorize and start a pipeline. Requires owner write scope."""
+def launch(pipeline: str, project_id: str, changeset_id: str = "", expected_digest: str = "", task_id: str = "") -> dict:
+    """Authorize and start a pipeline. Requires owner write scope.
+
+    task_id optionally links the run to a Mission Control task (history only).
+    """
     owner = require_owner_write()
     owner_id = str(owner["user_id"])
     planned = _plan(owner_id, pipeline, project_id, changeset_id)
@@ -478,16 +491,22 @@ def launch(pipeline: str, project_id: str, changeset_id: str = "", expected_dige
         return planned
     if expected_digest and expected_digest != planned["plan_digest"]:
         return {"error": "plan_digest_mismatch"}
+    if task_id:
+        task = task_links.resolve(task_id, owner_id)
+        if task.get("error"):
+            return task
+        task_id = task["task_id"]
     if sum(1 for record in _owned(owner_id) if record["state"] == "running") >= MAX_ACTIVE_PER_OWNER:
         return {"error": "too_many_active_pipelines", "limit": MAX_ACTIVE_PER_OWNER}
-    record = {"id": "pipe-" + uuid.uuid4().hex, "owner": owner_id, "pipeline": pipeline, "project_id": project_id,
+    record = {"id": "pipe-" + uuid.uuid4().hex, "task_id": task_id, "owner": owner_id, "pipeline": pipeline, "project_id": project_id,
               "changeset_id": changeset_id, "changeset_digest": planned["changeset_digest"],
               "plan_digest": planned["plan_digest"], "state": "running", "current": 0,
               "created_at": store.stamp(),
               "stages": [{"name": s["name"], "agent": s["agent"], "state": "pending", "attempts": 0} for s in planned["stages"]]}
     store.write_new(_path(record["id"]), record)
     _journal(record, {"event": "created", "pipeline": pipeline, "project_id": project_id,
-                      "plan_digest": record["plan_digest"]})
+                      "plan_digest": record["plan_digest"], "task_id": task_id or None})
+    _notify(record, "started")
     return _view(_advance_locked(record["id"], owner_id) or record)
 
 
@@ -509,14 +528,18 @@ def journal(pipeline_id: str) -> dict:
             "events": store.read_jsonl(ROOT / "events" / (pipeline_id + ".jsonl"), MAX_JOURNAL)}
 
 
-def list_pipelines(state: str = "") -> dict:
+def list_pipelines(state: str = "", task_id: str = "") -> dict:
     owner = require_owner()
     if state not in ("", "running", "completed", "failed", "cancelled"):
         return {"error": "invalid_state"}
-    items = [r for r in _owned(str(owner["user_id"])) if not state or r["state"] == state]
+    if not isinstance(task_id, str) or len(task_id) > 40:
+        return {"error": "invalid_task_id"}
+    items = [r for r in _owned(str(owner["user_id"]))
+             if (not state or r["state"] == state) and (not task_id or r.get("task_id") == task_id)]
     return {"pipelines": [{"pipeline_id": r["id"], "pipeline": r["pipeline"], "project_id": r["project_id"],
                            "state": r["state"], "current_stage": r["stages"][r["current"]]["name"],
-                           "current_agent": r["stages"][r["current"]]["agent"], "created_at": r["created_at"]}
+                           "current_agent": r["stages"][r["current"]]["agent"], "created_at": r["created_at"],
+                           "task_id": r.get("task_id") or None}
                           for r in items[:MAX_LISTED]],
             "truncated": len(items) > MAX_LISTED,
             "note": "Список не выполняет переходы; используйте nexus_director_pipeline_status."}
@@ -541,6 +564,7 @@ def cancel(pipeline_id: str) -> dict:
         record.update({"state": "cancelled", "finished_at": store.stamp(), "updated_at": store.stamp()})
         store.replace(_path(pipeline_id), record)
         _journal(record, {"event": "cancelled", "stage": stage["name"], "host_job_in_flight": in_flight})
+        _notify(record, "cancelled")
     return {**_view(record), "host_job_in_flight": in_flight,
             "note": "Дальнейшие этапы не будут запущены." + (" Уже переданное хосту задание завершится само; его результат не используется." if in_flight else "")}
 
@@ -572,6 +596,7 @@ def retry(pipeline_id: str) -> dict:
         record["state"] = "running"
         record.pop("failure", None)
         _journal(record, {"event": "retry_requested", "stage": stage["name"], "attempt": attempts + 1})
+        _notify(record, "retried")
         _advance(record)
         record["updated_at"] = store.stamp()
         store.replace(_path(pipeline_id), record)
