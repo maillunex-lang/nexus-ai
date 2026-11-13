@@ -65,9 +65,26 @@ def source_manifest(root):
                 raise ValueError("project_exceeds_copy_limits")
     return root,files,total
 
+MAX_PATCHES=8
+
 def verify_patch(root,patch):
+    """Verify one SHA-pinned patch, or a list of up to MAX_PATCHES patches.
+
+    A dict returns (path,content) as before; a list returns a list of such
+    pairs. Every file is checked before any workspace is created.
+    """
     if patch is None:
         return None
+    if isinstance(patch,list):
+        if not 1<=len(patch)<=MAX_PATCHES or not all(isinstance(item,dict) for item in patch):
+            raise ValueError("invalid_patch")
+        paths=[item.get("path") for item in patch]
+        if len(set(map(str,paths)))!=len(paths):
+            raise ValueError("duplicate_patch_path")
+        verified=[verify_patch(root,item) for item in patch]
+        if sum(len(content) for _,content in verified)>MAX_PATCH:
+            raise ValueError("invalid_patch_content")
+        return verified
     if not isinstance(patch,dict) or set(patch)!={"path","expected_sha256","content"}:
         raise ValueError("invalid_patch")
     content=patch["content"]
@@ -106,8 +123,8 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             destination=workspace/relative
             destination.parent.mkdir(parents=True,exist_ok=True)
             shutil.copy2(source,destination,follow_symlinks=False)
-        if verified:
-            original,content=verified
+        patched=verified if isinstance(verified,list) else [verified] if verified else []
+        for original,content in patched:
             (workspace/original.relative_to(root)).write_bytes(content)
         # Editor plugins and @tool scripts may execute code: restrict host access.
         executable=Path(executable).resolve(strict=True)
@@ -130,13 +147,19 @@ def run(root,parent,patch=None,godot="godot",timeout=120):
             output=str(exc)[-MAX_LOG:]
             exit_code=None
             timed_out=True
-        detected_errors=len(re.findall(r"(?m)^\\s*(?:ERROR:|SCRIPT ERROR:|Parse Error:)",output))
+        # The previous pattern escaped the backslash twice and could never match.
+        detected_errors=len(re.findall(r"(?m)^\s*(?:ERROR:|SCRIPT ERROR:|Parse Error:)",output))
+        script_errors=len(re.findall(r"(?m)^\s*(?:SCRIPT ERROR:|Parse Error:)",output))
         report={"job_id":job_id,"workspace":str(workspace),"source_project":str(root),
                 "source_files":len(files),"source_bytes":total,
-                "patch_applied_to_copy":bool(verified),"original_modified":False,
+                "patch_applied_to_copy":bool(verified),"patched_files":len(patched),
+                "original_modified":False,
                 "godot_exit_code":exit_code,"timed_out":timed_out,
-                "godot_errors":detected_errors,
-                "passed":exit_code==0 and not timed_out and detected_errors==0,
+                "godot_errors":detected_errors,"godot_script_errors":script_errors,
+                # A patched copy must parse cleanly. Unpatched builds of existing games keep
+                # the exit-code rule they have always effectively had, so engine "ERROR:"
+                # noise that those games already print cannot start failing their builds.
+                "passed":exit_code==0 and not timed_out and (script_errors==0 or not patched),
                 "godot_output":output,"timestamp":int(time.time())}
         (workspace/"nexus_godot_report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
         return report

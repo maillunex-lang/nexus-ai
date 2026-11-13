@@ -35,13 +35,21 @@ def process(file):
             raise ValueError("invalid_job_or_project")
         if not isinstance(data.get("requested_by"),str) or len(data["requested_by"])>128:
             raise ValueError("invalid_requester")
-        if set(data)!={"job_id","project_id","path","expected_sha256","content","requested_by"}:
+        if set(data)=={"job_id","project_id","patches","requested_by"}:
+            # Director change set: several SHA-pinned files applied to one isolated copy.
+            patch=data["patches"]
+            if not isinstance(patch,list) or len(patch)<2:
+                raise ValueError("invalid_job_shape")
+        elif set(data)=={"job_id","project_id","path","expected_sha256","content","requested_by"}:
+            patch={"path":data["path"],"expected_sha256":data["expected_sha256"],"content":data["content"]}
+        else:
             raise ValueError("invalid_job_shape")
-        patch={"path":data["path"],"expected_sha256":data["expected_sha256"],"content":data["content"]}
         report=run(PROJECTS[data["project_id"]],WORKSPACES,patch,timeout=120)
         result={"passed":report["passed"],"workspace_job_id":report["job_id"],
                 "godot_exit_code":report["godot_exit_code"],
                 "timed_out":report["timed_out"],"original_modified":False,
+                "patched_files":report.get("patched_files"),
+                "godot_script_errors":report.get("godot_script_errors"),
                 "godot_output":report["godot_output"][-6000:]}
         state="completed" if report["passed"] else "failed"
     except Exception as exc:

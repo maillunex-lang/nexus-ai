@@ -19,6 +19,8 @@ from .godot_one_command import start as build_start
 from .godot_build_queue import status as build_status
 from .godot_apk_delivery import issue as apk_issue
 from .godot_projects import inspect_project
+from . import director_pipelines as pipelines
+from . import director_changesets as changesets
 
 ROOT=QUEUE/"director-requests"
 ID=re.compile(r"req-[0-9a-f]{32}\Z")
@@ -64,9 +66,41 @@ def propose(project_id:str,action:str,description:str="")->dict:
          "action":action,"approval_url":BASE_URL+data["id"],
          "expires_at":data["expires_at"],"executed":False,
          "message":"Отправьте владельцу ссылку approval_url для подтверждения в панели NEXUS."}
+def propose_pipeline(pipeline:str,project_id:str,changeset_id:str="",description:str="")->dict:
+ """Inert request to run an exact Director pipeline plan; mcp:read may propose, never execute."""
+ owner=require_owner()
+ if not isinstance(description,str) or len(description)>1500 or any(ord(c)<32 and c not in "\n\t" for c in description):
+  return {"error":"invalid_description"}
+ planned=pipelines.plan(pipeline,project_id,changeset_id)
+ if planned.get("error"):return planned
+ now=datetime.now(timezone.utc)
+ data={"id":"req-"+uuid.uuid4().hex,"owner":str(owner["user_id"]),
+       "project_id":project_id,"action":"run_pipeline","description":description,
+       "pipeline":pipeline,"changeset_id":changeset_id,"plan_digest":planned["plan_digest"],
+       "status":"pending","created_at":now.isoformat(),
+       "expires_at":(now+timedelta(hours=24)).isoformat(),"result":None}
+ _save(data,True)
+ return {"request_id":data["id"],"status":"pending","project_id":project_id,
+         "action":"run_pipeline","pipeline":pipeline,"plan_digest":planned["plan_digest"],
+         "stages":[stage["name"] for stage in planned["stages"]],
+         "approval_url":BASE_URL+data["id"],"expires_at":data["expires_at"],"executed":False,
+         "message":"Отправьте владельцу ссылку approval_url для подтверждения в панели NEXUS."}
+def _with_pipeline_state(data):
+ """Attach the reviewed plan, change set diff and live pipeline state for display."""
+ extra={}
+ if data.get("status")=="pending":
+  planned=pipelines.plan(data.get("pipeline"),data.get("project_id"),data.get("changeset_id",""))
+  extra["plan"]=planned
+  extra["plan_current"]=planned.get("plan_digest")==data.get("plan_digest")
+  if data.get("changeset_id"):extra["changeset"]=changesets.inspect(data["changeset_id"])
+ elif data.get("status")=="queued":
+  identifier=(data.get("result") or {}).get("pipeline_id")
+  if isinstance(identifier,str):extra["pipeline_state"]=pipelines.status(identifier)
+ return {**data,**extra}
 def _with_build_state(data):
  """Read live worker state without modifying an approved request or its audit record."""
  result=data.get("result") or {}
+ if data.get("action")=="run_pipeline":return _with_pipeline_state(data)
  if data.get("action")!="build_android_debug" or data.get("status")!="queued" or not isinstance(result,dict):
   return data
  job=result.get("job_id")
@@ -78,7 +112,7 @@ def status(request_id:str)->dict:
  owner=require_owner()
  data=_read(request_id)
  if data["owner"]!=str(owner["user_id"]):return {"error":"not_found"}
- return _with_build_state({k:data[k] for k in ("id","project_id","action","description","status","created_at","expires_at","result")})
+ return _with_build_state({k:data[k] for k in ("id","project_id","action","description","status","created_at","expires_at","result","pipeline","changeset_id","plan_digest") if k in data})
 
 def download_link(request_id:str,request)->dict:
  user=_session_owner(request)
@@ -109,7 +143,10 @@ def get(request_id,request):
  user=_session_owner(request)
  d=_read(request_id)
  if d["owner"]!=str(user["id"]):raise HTTPException(404,"Request not found")
- return _with_build_state(d)
+ # Live job readers are owner-scoped MCP functions: give them the session owner, read-only.
+ token=principal_var.set({"user_id":str(user["id"]),"roles":["owner"],"scope":"mcp:read"})
+ try:return _with_build_state(d)
+ finally:principal_var.reset(token)
 def review(request_id,decision,request):
  user=_session_owner(request)
  if decision not in ("approved","denied"):raise HTTPException(400,"Invalid decision")
@@ -121,7 +158,8 @@ def review(request_id,decision,request):
  except FileExistsError:raise HTTPException(409,"Request is being reviewed")
  try:
   os.close(fd)
-  d=get(request_id,request)
+  d=_read(request_id)
+  if d["owner"]!=str(user["id"]):raise HTTPException(404,"Request not found")
   if d["status"]!="pending":raise HTTPException(409,"Already reviewed")
   if datetime.fromisoformat(d["expires_at"])<=datetime.now(timezone.utc):
    d["status"]="expired";_save(d);raise HTTPException(409,"Request expired")
@@ -136,6 +174,10 @@ def review(request_id,decision,request):
     if d["project_id"] not in _entries() or _entries()[d["project_id"]].get("inspection_only"):
      result={"error":"project_not_build_enabled"}
     else:result=build_start(d["project_id"])
+   elif d["action"]=="run_pipeline":
+    # The approved digest pins pipeline, project, change set contents and stage list.
+    result=pipelines.launch(d.get("pipeline"),d["project_id"],d.get("changeset_id",""),d.get("plan_digest") or "invalid")
+    result={k:result.get(k) for k in ("pipeline_id","pipeline","state","current_stage","error") if result.get(k) is not None}
    elif d["action"]=="inspect_project":
     result=inspect_project(d["project_id"])
     result={"project_id":d["project_id"],"error":result.get("error"),"file_count":result.get("file_count")}
@@ -144,8 +186,12 @@ def review(request_id,decision,request):
    result={"error":"execution_failed"}
   finally:principal_var.reset(token)
   d["result"]=result
-  d["status"]="failed" if result.get("error") else "queued" if d["action"]=="build_android_debug" else "completed"
+  d["status"]="failed" if result.get("error") else "queued" if d["action"] in ("build_android_debug","run_pipeline") else "completed"
   _save(d)
+  if d["action"]=="run_pipeline":
+   token=principal_var.set({"user_id":str(user["id"]),"roles":["owner"],"scope":"mcp:read"})
+   try:return _with_build_state(d)
+   finally:principal_var.reset(token)
   return d
  finally:
   lock.unlink(missing_ok=True)

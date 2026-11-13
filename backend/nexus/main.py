@@ -29,7 +29,7 @@ app.add_middleware(MCPBearerGuard)
 
 @app.middleware("http")
 async def reject_cross_origin_auth_writes(request: Request, call_next):
-    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path.startswith("/api/director/requests/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    if (request.url.path.startswith("/api/auth/") or request.url.path.startswith("/api/mission/") or request.url.path.startswith("/api/meshy/") or request.url.path.startswith("/api/dashboard/builds/") or request.url.path.startswith("/api/director/") or request.url.path in ("/oauth/authorize", "/oauth/revoke")) and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         # Browsers sending cross-site form requests must not mutate sessions.
         fetch_site = request.headers.get("sec-fetch-site", "")
         if fetch_site == "cross-site":
@@ -323,3 +323,47 @@ class DirectorApprovalDecision(BaseModel):
 @app.post("/api/director/requests/{request_id}/review")
 def director_request_review(request_id: str, payload: DirectorApprovalDecision, request: Request):
     return approval_requests.review(request_id,payload.decision,request)
+
+# Owner-session Director console: pipelines, agents and the error journal.
+from . import dashboard_director
+
+class DirectorPipelineLaunch(BaseModel):
+    pipeline: str
+    project_id: str
+    changeset_id: str = ""
+
+@app.get("/api/director/agents")
+def director_agents(request: Request):
+    return dashboard_director.agents(request)
+
+@app.get("/api/director/catalog")
+def director_catalog(request: Request):
+    return dashboard_director.catalog(request)
+
+@app.get("/api/director/errors")
+def director_errors_list(request: Request, limit: int = 20, project_id: str = ""):
+    return dashboard_director.errors(request, limit, project_id)
+
+@app.get("/api/director/pipelines")
+def director_pipeline_list(request: Request, state: str = ""):
+    return dashboard_director.pipelines(request, state)
+
+@app.post("/api/director/pipelines", status_code=202)
+def director_pipeline_launch(payload: DirectorPipelineLaunch, request: Request):
+    return dashboard_director.launch(request, payload.pipeline, payload.project_id, payload.changeset_id)
+
+@app.get("/api/director/pipelines/{pipeline_id}")
+def director_pipeline_detail(pipeline_id: str, request: Request):
+    return dashboard_director.detail(request, pipeline_id)
+
+@app.get("/api/director/pipelines/{pipeline_id}/journal")
+def director_pipeline_journal(pipeline_id: str, request: Request):
+    return dashboard_director.journal(request, pipeline_id)
+
+@app.post("/api/director/pipelines/{pipeline_id}/cancel")
+def director_pipeline_cancel(pipeline_id: str, request: Request):
+    return dashboard_director.cancel(request, pipeline_id)
+
+@app.post("/api/director/pipelines/{pipeline_id}/retry")
+def director_pipeline_retry(pipeline_id: str, request: Request):
+    return dashboard_director.retry(request, pipeline_id)
