@@ -32,6 +32,7 @@ def test_only_owner_can_review_and_no_duplicate_execution(tmp_path):
     assert err.value.status_code==409
  finally:principal_var.reset(token)
 
+
 def test_approved_build_status_and_download(tmp_path):
  token=principal_var.set({"user_id":"owner1","roles":["owner"],"scope":"mcp:read"})
  try:
@@ -46,4 +47,3 @@ def test_approved_build_status_and_download(tmp_path):
      assert d.download_link(r["request_id"],None)["download_url"].startswith("/nexusai/")
      issue.assert_called_once_with("godot-"+"a"*32)
  finally:principal_var.reset(token)
-
