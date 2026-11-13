@@ -752,3 +752,32 @@ def nexus_director_adoption_request(changeset_id: str, description: str = "") ->
     """
     from .director_requests import propose_adoption
     return propose_adoption(changeset_id, description)
+
+
+@mcp.tool()
+def nexus_godot_profile_start(project_id: str, seconds: int = 10) -> dict:
+    """Queue a sandboxed headless runtime profile of an execution-enabled project.
+
+    Owner mcp:write required. Measures frame/process timing and static memory;
+    does NOT measure Android device FPS, GPU time, draw calls or thermals.
+    """
+    from .performance_lab import submit
+    return submit(project_id, seconds)
+
+
+@mcp.tool()
+def nexus_godot_profile_status(job_id: str) -> dict:
+    """Read only your queued runtime profile or isolated optimization result."""
+    from .performance_lab import status
+    return status(job_id)
+
+
+@mcp.tool()
+def nexus_godot_optimize_isolated(project_id: str, preset: str = "economy", seconds: int = 10) -> dict:
+    """Apply an FPS-budget recipe ONLY to a copy; validate and profile before/after.
+
+    Owner mcp:write required. Presets: economy (30), balanced (45), high (60).
+    Does not rewrite gameplay code or claim GPU/device performance gains.
+    """
+    from .performance_lab import submit
+    return submit(project_id, seconds, preset)
