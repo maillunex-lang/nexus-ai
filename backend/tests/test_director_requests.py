@@ -46,3 +46,4 @@ def test_approved_build_status_and_download(tmp_path):
      assert d.download_link(r["request_id"],None)["download_url"].startswith("/nexusai/")
      issue.assert_called_once_with("godot-"+"a"*32)
  finally:principal_var.reset(token)
+
