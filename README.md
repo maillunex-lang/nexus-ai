@@ -1,44 +1,163 @@
-# NEXUS AI
+<div align="center">
 
-MCP platform for supervised game-development automation: OAuth-protected MCP tools for ChatGPT, a Russian operator dashboard, isolated Godot validation and Android debug builds, and a rule-based autonomous Director.
+# ⚡ NEXUS AI
 
-**Do not expose a development instance to the public internet.** The internal bearer token is disabled whenever `NEXUS_OAUTH_ISSUER` is set.
+### Центр управления разработкой игр: от идеи до проверенной Android-сборки
 
-## Included
-- FastAPI session API and OAuth 2.1 authorization code + PKCE server (`mcp:read`, `mcp:write`, explicit consent)
-- FastMCP Streamable HTTP at `/mcp/` behind a fail-closed bearer guard
-- Godot inspection, SHA-pinned change validation in isolated copies, debug APK builds with short-lived signed links
-- Autonomous Director: multi-stage pipelines with automatic transitions, multi-file change sets, verification gate, error journal, owner approval flow. See [Director 0.6](docs/AUTONOMOUS_DIRECTOR_0.6.md)
-- React 19 / Vite dashboard: login, consent, Mission Control, builds, approvals, Director console
-- PostgreSQL 16 schema scripts in `db/`; GitHub Actions for backend tests and frontend build
+**ChatGPT + автономные сценарии + Godot + GitHub + контроль качества**
 
-Current state, findings and next steps: [audit and roadmap](docs/AUDIT_AND_ROADMAP_2026-11-13.md).
+[![GitHub](https://img.shields.io/badge/GitHub-Source-181717?logo=github)](https://github.com/maillunex-lang/nexus-ai)
+![Python](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)
+![React](https://img.shields.io/badge/Dashboard-React_19-149ECA?logo=react)
+![Godot](https://img.shields.io/badge/Game_Engine-Godot_4-478CBF?logo=godotengine)
+![Android](https://img.shields.io/badge/Builds-Android_APK-3DDC84?logo=android)
+![Status](https://img.shields.io/badge/Status-Active_Development-orange)
 
-## Local Docker start (not on production VPS)
-1. Copy `.env.example` to `.env`.
-2. Set a strong unique `POSTGRES_PASSWORD` and `NEXUS_MCP_INTERNAL_TOKEN` (48+ random characters). URI-special characters in the DB password require encoding.
-3. Run `docker compose up --build -d`.
-4. Open `http://127.0.0.1:4189` on the same machine.
-5. Run `docker compose down` to stop services while retaining the DB volume.
+**Меньше ручной рутины. Больше времени на создание игр.**
 
-**Database:** `db/001_initial.sql` runs only on first PostgreSQL volume creation. On existing installations, back up PostgreSQL, then apply `db/002_identity.sql` once using `psql -v ON_ERROR_STOP=1`. This is an interim migration script, not a migration framework.
+[Возможности](#-что-умеет-nexus-ai) · [Как устроено](#-как-это-работает) · [Быстрый старт](#-локальный-запуск) · [Дорожная карта](#-развитие-платформы)
 
-## Backend tests
-```sh
+</div>
+
+---
+
+## 🌌 Что такое NEXUS AI?
+
+**NEXUS AI** — открытая платформа для управляемой автоматизации разработки игр. Она соединяет ChatGPT с инструментами разработки через защищённый MCP-интерфейс и помогает организовать процесс: проверить проект, подготовить изменения, провести валидацию, собрать тестовую Android APK и проследить за результатами.
+
+Это не «волшебная кнопка, которая сама создаёт любую AAA-игру». Это **инженерный центр управления**, в котором автоматизация подчиняется проверкам, разрешениям и границам безопасности.
+
+> **Идея:** разработчик задаёт цель, NEXUS помогает провести её через последовательность контролируемых этапов, сохраняя прозрачность действий.
+
+## 🚀 Что умеет NEXUS AI?
+
+| Подсистема | Назначение |
+| --- | --- |
+| 🧠 **Autonomous Director** | Правиловый директор управляет многоэтапными конвейерами, переходами, проверками и журналом ошибок |
+| 🎮 **Godot Validation** | Инспекция проектов Godot и проверка изменений в изолированных копиях |
+| 📱 **Android Build Pipeline** | Сборка отладочных APK и выдача краткоживущих подписанных ссылок |
+| 🧩 **MCP для ChatGPT** | Защищённые инструменты, доступные через Streamable HTTP |
+| 🛡️ **Verification Gate** | Проверки перед переходом к следующему этапу, работа с привязкой к конкретному SHA |
+| 👨‍✈️ **Owner Approval Flow** | Контроль согласований и разрешений владельца |
+| 🖥️ **Mission Control** | Русскоязычная панель оператора с управлением заданиями, сборками и согласованиями |
+| 📚 **Error Journal** | Учёт ошибок и результатов выполнения сценариев |
+
+**Важно:** перечислены возможности, описанные в текущем репозитории. Конкретная доступность сценариев зависит от конфигурации и подключённых инструментов; успешная сборка или прохождение тестов не гарантируются заранее.
+
+## ⚙️ Как это работает
+
+```mermaid
+flowchart TD
+    A["👤 Разработчик"] --> B["💬 ChatGPT"]
+    B --> C["🔐 OAuth 2.1 + MCP"]
+    C --> D["🧠 NEXUS Director"]
+    D --> E["🎮 Инспекция Godot"]
+    D --> F["🧪 Изолированная проверка"]
+    D --> G["📱 Android debug APK"]
+    E --> H["📋 Результаты и журнал"]
+    F --> H
+    G --> H
+    H --> I{"Проверки и разрешения"}
+    I -->|Пройдено| J["✅ Следующий этап"]
+    I -->|Ошибка| K["🔧 Исправление / разбор"]
+```
+
+NEXUS разделяет **запрос**, **выполнение**, **проверку** и **подтверждение**. Автоматические переходы не означают неограниченный доступ к серверам или публикацию изменений.
+
+## ✨ Для чего пригодится
+
+- **Инди-разработчику:** повторяемые проверки Godot и подготовка Android-сборок без ручного переключения между инструментами.
+- **Небольшой студии:** единая точка наблюдения за заданиями, проверками и результатами.
+- **Разработчику с несколькими игровыми проектами:** последовательные сценарии с журналом ошибок и контрольными точками.
+- **Создателю собственных AI-инструментов:** пример архитектуры защищённого MCP-сервера с панелью оператора и механизмом согласований.
+
+## 🧱 Технологический стек
+
+| Уровень | Технологии |
+| --- | --- |
+| Backend | Python, FastAPI, FastMCP |
+| Авторизация | OAuth 2.1 Authorization Code + PKCE, scopes `mcp:read` / `mcp:write` |
+| Frontend | React 19, Vite |
+| Данные | PostgreSQL 16 |
+| Game tooling | Godot, изолированная валидация проектов |
+| Сборки | Android debug APK |
+| Инфраструктура | Docker Compose, GitHub Actions |
+
+## 🏁 Локальный запуск
+
+> [!WARNING]
+> **Не выставляйте экземпляр для разработки в публичный интернет.** Перед развёртыванием изучите ограничения безопасности и настройте авторизацию. Эти команды предназначены для локальной среды, не для рабочего VPS.
+
+1. Скопируйте `.env.example` в `.env`.
+2. Укажите уникальные `POSTGRES_PASSWORD` и `NEXUS_MCP_INTERNAL_TOKEN` (не менее 48 случайных символов). Специальные символы в пароле БД внутри URI требуют кодирования.
+3. Запустите:
+
+```bash
+docker compose up --build -d
+```
+
+4. Откройте `http://127.0.0.1:4189` на той же машине.
+5. Для остановки без удаления тома базы данных:
+
+```bash
+docker compose down
+```
+
+### Миграции базы данных
+
+`db/001_initial.sql` применяется только при первом создании тома PostgreSQL. Для существующей установки сначала создайте резервную копию базы, затем **один раз** примените `db/002_identity.sql` через `psql -v ON_ERROR_STOP=1`. Сейчас это ручные SQL-скрипты, а не полноценный миграционный механизм.
+
+## 🧪 Проверки
+
+**Backend:**
+
+```bash
 python -m pip install -r backend/requirements-dev.txt
 PYTHONPATH=backend python -m pytest -q backend/tests
 ```
 
-## Frontend build
-```sh
+**Frontend:**
+
+```bash
 cd frontend
 npm install
 npm run build
 ```
 
-## Security limitations
-- The Director is deterministic: no language model, no shell, no publishing; original game directories are read-only.
-- Open items are tracked in [the security audit](docs/SECURITY_AUDIT_2026-11-12.md): no per-session CSRF token (Origin and Fetch Metadata checks only), limited rate limiting, incomplete audit logging of authentication events.
-- Migrations are plain SQL scripts applied manually, not a migration framework.
+В репозитории предусмотрены GitHub Actions для тестов backend и сборки frontend. Команды приведены для воспроизведения проверок, а не как заявление об их текущем успешном прохождении.
 
-See [Enterprise roadmap](docs/ENTERPRISE_ROADMAP.md).
+## 🔐 Безопасность прежде всего
+
+- OAuth 2.1 с PKCE, явным согласием и разграничением `mcp:read` / `mcp:write`.
+- MCP endpoint `/mcp/` защищён fail-closed bearer guard.
+- Внутренний bearer-токен отключается при заданном `NEXUS_OAUTH_ISSUER`.
+- Детерминированный Director **не вызывает LLM, не запускает shell-команды и не публикует изменения**.
+- Исходные каталоги игр доступны Director только для чтения; проверки изменений выполняются в изолированных копиях.
+
+**Известные ограничения:** пока нет отдельного CSRF-токена на сессию (используются проверки Origin и Fetch Metadata), rate limiting ограничен, журналирование событий аутентификации неполное. Подробности: [Security Audit](docs/SECURITY_AUDIT_2026-11-12.md).
+
+## 🗺️ Развитие платформы
+
+NEXUS AI развивается как модульная экосистема автоматизации разработки. Среди направлений для дальнейшей работы: расширение игровых конвейеров, более глубокие проверки качества, улучшение контроля задач, интеграции с инструментами создания контента и повышение надёжности.
+
+**Планы не следует путать с готовыми функциями.** Актуальные подтверждённые результаты, проблемы и следующие шаги:
+
+- [Аудит и дорожная карта от 13.11.2026](docs/AUDIT_AND_ROADMAP_2026-11-13.md)
+- [Autonomous Director 0.6](docs/AUTONOMOUS_DIRECTOR_0.6.md)
+- [Enterprise Roadmap](docs/ENTERPRISE_ROADMAP.md)
+
+## 🤝 Участие в проекте
+
+Нашли ошибку или придумали полезную интеграцию? Откройте Issue с описанием сценария, ожидаемым поведением, шагами воспроизведения и логами **без секретов и токенов**.
+
+---
+
+<div align="center">
+
+### ⚡ NEXUS AI
+
+**Не просто выполнять команды. Строить управляемый процесс создания игр.**
+
+[GitHub Repository](https://github.com/maillunex-lang/nexus-ai)
+
+</div>
