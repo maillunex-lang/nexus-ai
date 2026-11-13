@@ -1,4 +1,5 @@
 import hashlib
+import sys
 import importlib.util
 from pathlib import Path
 from unittest.mock import patch
@@ -29,7 +30,7 @@ def test_copy_patch_and_no_original_mutation(tmp_path):
         stdout="ok"
         stderr=""
         returncode=0
-    with patch.object(mod.shutil,"which",return_value="/usr/local/bin/python"),patch.object(mod.subprocess,"run",return_value=Result()) as process:
+    with patch.object(mod.shutil,"which",return_value=sys.executable),patch.object(mod.subprocess,"run",return_value=Result()) as process:
         report=mod.run(root,parent,change)
     assert report["passed"]
     assert report["patch_applied_to_copy"]
@@ -80,7 +81,7 @@ def _two_files(tmp_path):
 
 def test_multi_file_patch_applies_only_to_copy(tmp_path):
     root,parent,patches=_two_files(tmp_path)
-    with patch.object(mod.shutil,"which",return_value="/usr/local/bin/python"),patch.object(mod.subprocess,"run",return_value=_result()):
+    with patch.object(mod.shutil,"which",return_value=sys.executable),patch.object(mod.subprocess,"run",return_value=_result()):
         report=mod.run(root,parent,patches)
     assert report["passed"] and report["patched_files"]==2
     assert (root/"main.gd").read_text()=="extends Node\n" and (root/"other.gd").read_text()=="extends Node2D\n"
@@ -102,7 +103,7 @@ def test_multi_file_patch_is_all_or_nothing(tmp_path):
 def test_script_errors_fail_patched_copy_but_not_unpatched_build(tmp_path):
     root,parent,patches=_two_files(tmp_path)
     log='SCRIPT ERROR: Parse Error: Expected ":"\n   at: GDScript::reload (res://main.gd:2)\nERROR: Failed to load script\n'
-    with patch.object(mod.shutil,"which",return_value="/usr/local/bin/python"),patch.object(mod.subprocess,"run",return_value=_result(log)):
+    with patch.object(mod.shutil,"which",return_value=sys.executable),patch.object(mod.subprocess,"run",return_value=_result(log)):
         patched=mod.run(root,parent,patches[0])
         plain=mod.run(root,parent)
     assert patched["godot_script_errors"]==1 and patched["godot_errors"]==2 and not patched["passed"]
