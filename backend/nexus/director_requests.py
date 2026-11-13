@@ -16,6 +16,8 @@ from .godot_projects import _entries
 from .identity import current_user
 from .mcp_principal import require_owner, principal_var
 from .godot_one_command import start as build_start
+from .godot_build_queue import status as build_status
+from .godot_apk_delivery import issue as apk_issue
 from .godot_projects import inspect_project
 
 ROOT=QUEUE/"director-requests"
@@ -62,11 +64,32 @@ def propose(project_id:str,action:str,description:str="")->dict:
          "action":action,"approval_url":BASE_URL+data["id"],
          "expires_at":data["expires_at"],"executed":False,
          "message":"Отправьте владельцу ссылку approval_url для подтверждения в панели NEXUS."}
+def _with_build_state(data):
+ """Read live worker state without modifying an approved request or its audit record."""
+ result=data.get("result") or {}
+ if data.get("action")!="build_android_debug" or data.get("status")!="queued" or not isinstance(result,dict):
+  return data
+ job=result.get("job_id")
+ if not isinstance(job,str):return data
+ current=build_status(job)
+ return {**data,"build":current}
+
 def status(request_id:str)->dict:
  owner=require_owner()
  data=_read(request_id)
  if data["owner"]!=str(owner["user_id"]):return {"error":"not_found"}
- return {k:data[k] for k in ("id","project_id","action","description","status","created_at","expires_at","result")}
+ return _with_build_state({k:data[k] for k in ("id","project_id","action","description","status","created_at","expires_at","result")})
+
+def download_link(request_id:str,request)->dict:
+ user=_session_owner(request)
+ data=get(request_id,request)
+ if data.get("action")!="build_android_debug" or data.get("status")!="queued":
+  return {"error":"approved_build_required"}
+ job=(data.get("result") or {}).get("job_id")
+ if not isinstance(job,str):return {"error":"build_job_missing"}
+ token=principal_var.set({"user_id":str(user["id"]),"roles":["owner"],"scope":"mcp:read"})
+ try:return apk_issue(job)
+ finally:principal_var.reset(token)
 def _session_owner(request):
  user=current_user(request)
  if "owner" not in user["roles"]:raise HTTPException(403,"Owner required")
@@ -86,7 +109,7 @@ def get(request_id,request):
  user=_session_owner(request)
  d=_read(request_id)
  if d["owner"]!=str(user["id"]):raise HTTPException(404,"Request not found")
- return d
+ return _with_build_state(d)
 def review(request_id,decision,request):
  user=_session_owner(request)
  if decision not in ("approved","denied"):raise HTTPException(400,"Invalid decision")
