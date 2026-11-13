@@ -313,6 +313,10 @@ def director_request_list(request: Request):
 def director_request_detail(request_id: str, request: Request):
     return approval_requests.get(request_id,request)
 
+@app.post("/api/director/requests/{request_id}/download")
+def director_request_download(request_id: str, request: Request):
+    return approval_requests.download_link(request_id,request)
+
 class DirectorApprovalDecision(BaseModel):
     decision: Literal["approved","denied"]
 
