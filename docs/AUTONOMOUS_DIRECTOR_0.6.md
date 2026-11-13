@@ -28,7 +28,7 @@ It is deterministic. There is no language model, no shell, no network call, no w
 3. Run `change_validate` or `change_build_apk`. The host worker re-checks every SHA pin, copies the project to a fresh workspace, applies all files to the copy (all or nothing) and runs Godot headless inside bubblewrap without network.
 4. The APK from `change_build_apk` is built from that validated copy.
 
-There is deliberately **no operation that writes a change back to an original game directory**; originals stay mounted read-only. Adopting a validated change into the real project is a manual owner step.
+There is deliberately **no operation that writes a change back to an original game directory**; originals stay mounted read-only. A validated change leaves the sandbox only as a patch or as a Git branch for review (see "Adopting a validated change").
 
 Change validation is enabled for `basheco` (the locked baseline, as the single-file tool has always had) plus any build-enabled game the **owner switches on in the dashboard** (Director console → "Проверка изменений кода", `POST /api/director/settings/change-validation`). There is no MCP tool for this switch; every change is written to `director-settings/audit.jsonl`. Change sets for other projects can be created and reviewed as diffs but not validated.
 
@@ -64,6 +64,26 @@ To schedule it without any host timer, set `NEXUS_DIRECTOR_TICK_SECONDS` (15–3
 
 `nexus_director_pipeline_launch`, `nexus_director_pipeline_request_approval` and the dashboard accept an optional `task_id` (a Mission Control task UUID). The pipeline's milestones (`director.pipeline.started/completed/failed/cancelled/retried`) are appended to that task's existing event history and to `audit_events`; `nexus_director_pipeline_list(task_id=...)` and the task card in the dashboard show the linked runs. The link is metadata only: it is not part of the plan digest, a task's status stays under human control, and a database outage never affects a running pipeline. No migration is needed.
 
+## Adopting a validated change (`director_adoption`)
+
+**Patch export — always available.** `nexus_director_changeset_patch` (or the "Скачать патч" link on the approval page, `GET /api/director/changesets/{id}/patch`) returns a git-compatible patch with paths relative to the Godot project root, including new and deleted files. Apply it yourself: `git checkout -b nexus/adopt-… && git apply --check FILE && git apply FILE`. Nothing is applied by NEXUS.
+
+**GitHub branch and draft pull request — off until you configure it.** Requires on the API service:
+
+- `NEXUS_ADOPTION_REPOSITORIES`, e.g. `{"basheco": {"repository": "owner/repo", "base_branch": "main", "path_prefix": "client"}}` (`path_prefix` is where the Godot project lives inside the repository; empty for the root);
+- a token file at `/run/secrets/github_adoption_token` (or `NEXUS_GITHUB_ADOPTION_TOKEN_FILE`) holding a fine-grained token for only those repositories with *Contents: write* and *Pull requests: write*.
+
+Flow: `nexus_director_adoption_request(changeset_id)` creates an inert request and an `approval_url` (a read token is enough; GitHub is not contacted). The owner sees the repository, base branch and full diff in the dashboard. On approval NEXUS creates a new branch `nexus/adopt-<id>-<random>` with exactly one commit on top of the current base branch head and opens a **draft** pull request.
+
+Safeguards:
+- Only change sets with a completed `change_validate` or `change_build_apk` pipeline.
+- Every modified or deleted file in the repository must be byte-identical (SHA-256) to the source the change was validated against, and a created file must not exist; otherwise nothing is written (`repository_differs_from_validated_source`).
+- The approval pins change-set digest, repository, base branch and prefix; changing any of them invalidates it.
+- Branches are created, never updated; the base branch is never written; there is no merge, no non-draft fallback, no deploy, and no MCP tool that executes adoption directly.
+- The token is read from the file on each use and never appears in responses, records or logs. Each adoption is appended to `director-adoptions/audit.jsonl`.
+
+`nexus_director_adoption_status` shows what is configured.
+
 ## Retention
 
 Each scheduled or one-shot pass also removes finished Director state older than `NEXUS_DIRECTOR_RETENTION_DAYS` (default 30, `0` disables), at most once an hour: terminal pipelines with their journals, change sets not referenced by a kept pipeline or a pending approval request, rotated error journals and lock files older than a day. It never touches projects, workspaces, builds, host job queues or approval requests.
@@ -93,9 +113,9 @@ All earlier tools keep their names, parameters and behaviour. `nexus_capabilitie
 
 ## Verification status
 
-Verified here: 264 backend tests (pytest) and the dashboard production build; the console and approval page were rendered in Chromium against a mocked API.
+Verified here: 271 backend tests (the exported patch is applied with real `git apply` in a test) (pytest) and the dashboard production build; the console and approval page were rendered in Chromium against a mocked API.
 
-Not verified: a real Godot/bubblewrap/Android SDK run, the deployed host worker, PostgreSQL-backed login, and a live ChatGPT MCP session. The host worker in tests is simulated by moving queue files exactly as the worker does.
+Not verified: the GitHub adoption path against the real GitHub API (it is exercised against an in-memory fake), a real Godot/bubblewrap/Android SDK run, the deployed host worker, PostgreSQL-backed login, and a live ChatGPT MCP session. The host worker in tests is simulated by moving queue files exactly as the worker does.
 
 ## Known limitations
 

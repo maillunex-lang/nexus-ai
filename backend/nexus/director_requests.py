@@ -89,6 +89,33 @@ def propose_pipeline(pipeline:str,project_id:str,changeset_id:str="",description
          "stages":[stage["name"] for stage in planned["stages"]],
          "approval_url":BASE_URL+data["id"],"expires_at":data["expires_at"],"executed":False,
          "message":"Отправьте владельцу ссылку approval_url для подтверждения в панели NEXUS."}
+def propose_adoption(changeset_id:str,description:str="")->dict:
+ """Inert request to publish a validated change set as a nexus/ branch and draft PR."""
+ from . import director_adoption as adoption
+ owner=require_owner()
+ if not isinstance(description,str) or len(description)>1500 or any(ord(c)<32 and c not in "\n\t" for c in description):
+  return {"error":"invalid_description"}
+ planned=adoption.plan(str(owner["user_id"]),changeset_id)
+ if planned.get("error"):return planned
+ now=datetime.now(timezone.utc)
+ data={"id":"req-"+uuid.uuid4().hex,"owner":str(owner["user_id"]),
+       "project_id":planned["project_id"],"action":"adopt_changeset","description":description,
+       "changeset_id":changeset_id,"plan_digest":planned["adoption_digest"],
+       "status":"pending","created_at":now.isoformat(),
+       "expires_at":(now+timedelta(hours=24)).isoformat(),"result":None}
+ _save(data,True)
+ return {"request_id":data["id"],"status":"pending","project_id":planned["project_id"],
+         "action":"adopt_changeset","repository":planned["repository"],"base_branch":planned["base_branch"],
+         "repository_paths":planned["repository_paths"],"approval_url":BASE_URL+data["id"],
+         "expires_at":data["expires_at"],"executed":False,
+         "message":"Отправьте владельцу ссылку approval_url. Ветка и черновик pull request создаются только после подтверждения."}
+def _with_adoption_state(data):
+ """Attach the adoption target and the diff the owner is about to publish."""
+ if data.get("status")!="pending":return data
+ from . import director_adoption as adoption
+ planned=adoption.plan(str(require_owner()["user_id"]),data.get("changeset_id"))
+ return {**data,"adoption":planned,"plan_current":planned.get("adoption_digest")==data.get("plan_digest"),
+         "changeset":changesets.inspect(data.get("changeset_id"))}
 def _with_pipeline_state(data):
  """Attach the reviewed plan, change set diff and live pipeline state for display."""
  extra={}
@@ -105,6 +132,7 @@ def _with_build_state(data):
  """Read live worker state without modifying an approved request or its audit record."""
  result=data.get("result") or {}
  if data.get("action")=="run_pipeline":return _with_pipeline_state(data)
+ if data.get("action")=="adopt_changeset":return _with_adoption_state(data)
  if data.get("action")!="build_android_debug" or data.get("status")!="queued" or not isinstance(result,dict):
   return data
  job=result.get("job_id")
@@ -182,6 +210,9 @@ def review(request_id,decision,request):
     # The approved digest pins pipeline, project, change set contents and stage list.
     result=pipelines.launch(d.get("pipeline"),d["project_id"],d.get("changeset_id",""),d.get("plan_digest") or "invalid",d.get("task_id") or "")
     result={k:result.get(k) for k in ("pipeline_id","pipeline","state","current_stage","error") if result.get(k) is not None}
+   elif d["action"]=="adopt_changeset":
+    from . import director_adoption as adoption
+    result=adoption.execute(d.get("changeset_id"),d.get("plan_digest") or "invalid",d.get("description") or "")
    elif d["action"]=="inspect_project":
     result=inspect_project(d["project_id"])
     result={"project_id":d["project_id"],"error":result.get("error"),"file_count":result.get("file_count")}

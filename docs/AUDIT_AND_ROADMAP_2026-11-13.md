@@ -30,5 +30,5 @@
 | 5 | Deploy to Lunex and run each pipeline against the real toolchain and a live ChatGPT session | **owner action, not done** |
 | 6 | Link pipelines to Mission Control tasks; retention for file state; optional in-process schedule (`NEXUS_DIRECTOR_TICK_SECONDS`, off by default) | done |
 | 7 | File creation/deletion in change sets; per-project change enablement decided by the owner in the dashboard | done |
-| 8 | Reviewed "adopt change" path into a Git branch of the game (never the live directory) | needs design and owner approval |
+| 8 | Adopt a validated change: git patch export; opt-in, approval-gated `nexus/adopt-*` branch + draft pull request in the game's GitHub repository (never the live directory, never merged) | done; GitHub path needs owner configuration and a live test |
 | 9 | Optional LLM planner behind the same approval gate | needs provider, budget and security decisions |

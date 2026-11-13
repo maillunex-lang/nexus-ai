@@ -4,7 +4,7 @@ Reads use a read-scoped principal. Launch, cancel and retry are explicit owner
 actions in an authenticated same-origin session, so they run with write scope.
 """
 from fastapi import HTTPException, Request
-from . import director_errors, director_pipelines, director_settings
+from . import director_adoption, director_errors, director_pipelines, director_settings
 from .identity import current_user
 from .mcp_principal import principal_var
 
@@ -62,3 +62,11 @@ def cancel(request: Request, pipeline_id: str) -> dict:
 
 def retry(request: Request, pipeline_id: str) -> dict:
     return _call(request, "mcp:write", director_pipelines.retry, pipeline_id)
+
+
+def adoption(request: Request) -> dict:
+    return _call(request, "mcp:read", director_adoption.describe)
+
+
+def changeset_patch(request: Request, changeset_id: str) -> dict:
+    return _call(request, "mcp:read", director_adoption.patch, changeset_id)

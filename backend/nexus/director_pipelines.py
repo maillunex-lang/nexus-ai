@@ -197,6 +197,15 @@ def _owned(owner_id: str) -> list[dict]:
     return sorted(items, key=lambda r: r.get("created_at", ""), reverse=True)
 
 
+def validated_run(owner_id: str, changeset_id: str, changeset_digest: str) -> str | None:
+    """Id of a completed validation pipeline for exactly this change set, if any."""
+    for record in _owned(owner_id):
+        if (record["state"] == "completed" and record["pipeline"] in ("change_validate", "change_build_apk")
+                and record["changeset_id"] == changeset_id and record["changeset_digest"] == changeset_digest):
+            return record["id"]
+    return None
+
+
 # --- stage executors ----------------------------------------------------------
 
 def _done(**summary) -> dict:

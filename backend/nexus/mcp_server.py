@@ -725,3 +725,30 @@ def nexus_director_error_log(limit: int = 20, project_id: str = "") -> dict:
     """Read your classified Director error journal: category, policy, Godot diagnostics, next action."""
     from .director_errors import list_errors
     return list_errors(limit, project_id)
+
+
+@mcp.tool()
+def nexus_director_changeset_patch(changeset_id: str) -> dict:
+    """Export your change set as a git-compatible patch for manual `git apply`. Applies nothing."""
+    from .director_adoption import patch
+    return patch(changeset_id)
+
+
+@mcp.tool()
+def nexus_director_adoption_status() -> dict:
+    """Show whether publishing validated change sets to a game's GitHub repository is configured."""
+    from .director_adoption import describe
+    return describe()
+
+
+@mcp.tool()
+def nexus_director_adoption_request(changeset_id: str, description: str = "") -> dict:
+    """Request owner approval to publish a validated change set as a new nexus/ branch and draft PR.
+
+    Works with an MCP read token and executes nothing. Requires a completed
+    change_validate or change_build_apk pipeline for this change set. After the owner
+    approves in the dashboard, one commit is created on a new branch; nothing is
+    merged or deployed and no live game directory is touched.
+    """
+    from .director_requests import propose_adoption
+    return propose_adoption(changeset_id, description)

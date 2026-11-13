@@ -387,3 +387,16 @@ def director_pipeline_cancel(pipeline_id: str, request: Request):
 @app.post("/api/director/pipelines/{pipeline_id}/retry")
 def director_pipeline_retry(pipeline_id: str, request: Request):
     return dashboard_director.retry(request, pipeline_id)
+
+@app.get("/api/director/adoption")
+def director_adoption_status(request: Request):
+    return dashboard_director.adoption(request)
+
+@app.get("/api/director/changesets/{changeset_id}/patch")
+def director_changeset_patch(changeset_id: str, request: Request):
+    result = dashboard_director.changeset_patch(request, changeset_id)
+    if result.get("error"):
+        raise HTTPException(404 if result["error"] == "changeset_not_found" else 409, result["error"])
+    return Response(content=result["patch"], media_type="text/x-diff; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % result["filename"],
+                             "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
