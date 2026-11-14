@@ -752,3 +752,28 @@ def nexus_director_adoption_request(changeset_id: str, description: str = "") ->
     """
     from .director_requests import propose_adoption
     return propose_adoption(changeset_id, description)
+
+
+@mcp.tool()
+def nexus_infrastructure_bridge_catalog() -> dict:
+    """Read the typed NEXUS-Termalin bridge contract and safety limits."""
+    from .infrastructure_bridge import catalog
+    return catalog()
+
+@mcp.tool()
+def nexus_infrastructure_bridge_inventory(snapshot: dict) -> dict:
+    """Normalize a read-only Termalin inventory snapshot and redact secret-like fields."""
+    from .infrastructure_bridge import normalize_inventory
+    return normalize_inventory(snapshot)
+
+@mcp.tool()
+def nexus_infrastructure_bridge_plan(request: dict, snapshot: dict) -> dict:
+    """Validate an exact typed infrastructure intent; never executes it."""
+    from .infrastructure_bridge import plan
+    return plan(request, snapshot)
+
+@mcp.tool()
+def nexus_infrastructure_bridge_verify(expected: dict, observed: dict) -> dict:
+    """Verify post-operation evidence and recommend rollback on failed health checks."""
+    from .infrastructure_bridge import verify
+    return verify(expected, observed)
